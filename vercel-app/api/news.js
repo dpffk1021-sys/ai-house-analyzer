@@ -1,54 +1,40 @@
-// 부동산 뉴스 RSS 프록시 — 안정적인 다중 소스
+// 네이버 뉴스 검색 API
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  const sources = [
-    'https://www.hankyung.com/feed/realestate',
-    'https://www.chosun.com/arc/outboundfeeds/rss/category/economy/realestate/',
-    'https://biz.chosun.com/arc/outboundfeeds/rss/category/real_estate/',
-  ];
+  const clientId     = process.env.NAVER_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
-  function parseRSS(xml) {
-    const items = [];
-    const re = /<item>([\s\S]*?)<\/item>/g;
-    let m;
-    while ((m = re.exec(xml)) !== null) {
-      const b = m[1];
-      const get = tag => {
-        const r = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`);
-        const found = b.match(r);
-        return found ? found[1].replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#39;/g,"'").trim() : '';
-      };
-      // link 처리 (self-closing 태그 대응)
-      const linkRaw = get('link') || (b.match(/https?:\/\/[^\s<"]+/) || [])[0] || '';
-      const title = get('title').replace(/\s*[-|]\s*[^-|]+$/, '');
-      const pubDate = get('pubDate');
-      const source = get('source') || get('author') || '';
-      if (title && linkRaw && items.length < 12) {
-        items.push({ title, link: linkRaw, source, pubDate });
-      }
+  if (!clientId || !clientSecret) {
+    return res.status(500).json({ success: false, message: 'API 키가 설정되지 않았습니다.' });
+  }
+
+  try {
+    const query = encodeURIComponent('서울 부동산 아파트 집값');
+    const url   = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=15&sort=date`;
+
+    const response = await fetch(url, {
+      headers: {
+        'X-Naver-Client-Id':     clientId,
+        'X-Naver-Client-Secret': clientSecret,
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (!response.ok) {
+      return res.status(200).json({ success: false, message: `네이버 API 오류: ${response.status}` });
     }
-    return items;
-  }
 
-  for (const url of sources) {
-    try {
-      const r = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-          'Accept': 'application/rss+xml, application/xml, text/xml',
-        },
-        signal: AbortSignal.timeout(7000),
-      });
-      if (!r.ok) continue;
-      const xml = await r.text();
-      if (!xml.includes('<item>')) continue;
-      const items = parseRSS(xml);
-      if (items.length > 0) {
-        return res.status(200).json({ success: true, items, source: url });
-      }
-    } catch { continue; }
-  }
+    const data  = await response.json();
+    const items = (data.items || []).map(item => ({
+      title:   item.title.replace(/<\/?b>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'"),
+      link:    item.originallink || item.link,
+      source:  item.link.match(/https?:\/\/([^/]+)/)?.[1]?.replace('www.', '') || '',
+      pubDate: item.pubDate,
+    }));
 
-  return res.status(200).json({ success: false, items: [], message: '뉴스 소스 연결 실패' });
+    return res.status(200).json({ success: true, items, count: items.length });
+  } catch (e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
 }
