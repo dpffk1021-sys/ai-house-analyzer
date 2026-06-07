@@ -1,0 +1,3189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>내 집 마련 분석 시스템</title>
+  <style>
+    /* ── CSS 변수 (라이트/다크 모드) ── */
+    :root {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --surface2: #f7fafc;
+      --text: #1a202c;
+      --text-sub: #4a5568;
+      --text-muted: #718096;
+      --border: #e2e8f0;
+      --border2: #f0f4f8;
+      --primary: #3182ce;
+      --primary-dark: #2b6cb0;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+      --input-bg: #ffffff;
+      --header-bg: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+      --tab-bg: #ffffff;
+    }
+    [data-theme="dark"] {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #252840;
+      --text: #e2e8f0;
+      --text-sub: #a0aec0;
+      --text-muted: #718096;
+      --border: #2d3748;
+      --border2: #252840;
+      --primary: #63b3ed;
+      --primary-dark: #4299e1;
+      --shadow: 0 1px 6px rgba(0,0,0,0.4);
+      --input-bg: #252840;
+      --header-bg: linear-gradient(135deg, #0f1117 0%, #1a1d2e 100%);
+      --tab-bg: #1a1d2e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      transition: background 0.25s, color 0.25s;
+    }
+
+    /* ── 헤더 ── */
+    .header {
+      background: var(--header-bg);
+      color: white; padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .header-left h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 2px; letter-spacing: -0.3px; }
+    .header-left p { font-size: 0.78rem; opacity: 0.5; font-weight: 400; }
+
+    /* 다크모드 토글 */
+    .theme-toggle {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.65); padding: 7px 14px; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 500; cursor: pointer; letter-spacing: 0.3px;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .theme-toggle:hover { background: rgba(255,255,255,0.14); color: white; }
+
+    /* ── 탭 ── */
+    .tabs {
+      display: flex; background: var(--tab-bg);
+      border-bottom: 2px solid var(--border); overflow-x: auto;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      position: sticky; top: 0; z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      padding: 12px 15px; font-size: 0.8rem; font-weight: 500;
+      color: var(--text-muted); border: none; background: none;
+      cursor: pointer; white-space: nowrap; letter-spacing: 0.1px;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .tab-btn:hover { color: var(--text-sub); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+    /* ── 콘텐츠 ── */
+    .content { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface); border-radius: 14px; padding: 22px;
+      box-shadow: var(--shadow); margin-bottom: 18px;
+      border: 1px solid var(--border);
+      transition: background 0.25s, border-color 0.25s;
+    }
+    .card h2 { font-size: 1.02rem; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+    .card h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 10px; color: var(--text-sub); }
+
+    /* ── 입력 ── */
+    .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+    @media (max-width: 560px) { .input-row { grid-template-columns: 1fr; gap: 10px; } }
+
+    .input-group label {
+      display: block; font-size: 0.76rem; font-weight: 600;
+      color: var(--text-muted); margin-bottom: 5px;
+    }
+    .input-group input, .input-group select {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 9px; font-size: 0.9rem;
+      color: var(--text); background: var(--input-bg);
+      transition: border-color 0.2s, background 0.25s; outline: none;
+    }
+    .input-group input:focus, .input-group select:focus { border-color: var(--primary); }
+
+    /* ── 결과/경고 박스 ── */
+    .result-box {
+      background: #ebf8ff; border: 1.5px solid #bee3f8; border-radius: 12px;
+      padding: 18px 20px; margin-top: 16px;
+    }
+    [data-theme="dark"] .result-box { background: #1a2a3a; border-color: #2c5282; }
+    .result-box .big-num { font-size: 2rem; font-weight: 800; color: var(--primary-dark); }
+    .result-box .label { font-size: 0.78rem; color: #4a90c4; margin-bottom: 4px; }
+    .result-box .sub { font-size: 0.82rem; color: var(--text-sub); margin-top: 8px; }
+
+    .warn-box {
+      background: #fffaf0; border: 1.5px solid #fbd38d; border-radius: 10px;
+      padding: 14px 18px; margin-top: 12px; font-size: 0.84rem; color: #744210;
+    }
+    [data-theme="dark"] .warn-box { background: #2d2000; border-color: #b7791f; color: #fbd38d; }
+    .ok-box {
+      background: #f0fff4; border: 1.5px solid #9ae6b4; border-radius: 10px;
+      padding: 14px 18px; margin-top: 12px; font-size: 0.84rem; color: #276749;
+    }
+    [data-theme="dark"] .ok-box { background: #0a2d1a; border-color: #276749; color: #9ae6b4; }
+
+    /* ── 스탯 그리드 ── */
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+    @media (max-width: 560px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+    .stat-item {
+      background: var(--surface2); border-radius: 10px; padding: 14px;
+      text-align: center; border: 1px solid var(--border);
+      transition: background 0.25s;
+    }
+    .stat-item .num { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+    .stat-item .desc { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── 비교 카드 ── */
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+    @media (max-width: 560px) { .compare-grid { grid-template-columns: 1fr; } }
+    .compare-card { border-radius: 10px; padding: 18px; border: 2px solid transparent; }
+    .compare-card.jeonse { background: #f0fff4; border-color: #9ae6b4; }
+    .compare-card.maemae { background: #ebf8ff; border-color: #90cdf4; }
+    [data-theme="dark"] .compare-card.jeonse { background: #0a2d1a; border-color: #276749; }
+    [data-theme="dark"] .compare-card.maemae { background: #1a2a3a; border-color: #2c5282; }
+    .compare-card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; }
+    .compare-card.jeonse h4 { color: #276749; }
+    .compare-card.maemae h4 { color: #2b6cb0; }
+    .compare-card .row {
+      display: flex; justify-content: space-between; font-size: 0.82rem;
+      padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    [data-theme="dark"] .compare-card .row { border-bottom-color: rgba(255,255,255,0.07); }
+    .compare-card .row:last-child { border: none; }
+    .compare-card .row .key { color: var(--text-muted); }
+    .compare-card .row .val { font-weight: 600; }
+
+    /* ── 지역 리스트 ── */
+    .area-list { list-style: none; }
+    .area-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 16px 0; border-bottom: 1px solid var(--border2);
+    }
+    .area-item:last-child { border: none; }
+    .rank {
+      min-width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; color: white;
+      background: linear-gradient(135deg, #3182ce, #2b6cb0); flex-shrink: 0;
+    }
+    .area-info .name { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .area-info .line { font-size: 0.78rem; color: var(--text-muted); margin: 3px 0; }
+    .area-info .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tag {
+      font-size: 0.7rem; padding: 3px 8px; border-radius: 20px;
+      background: var(--surface2); color: var(--text-sub); font-weight: 600;
+      border: 1px solid var(--border);
+    }
+    .tag.green { background: #c6f6d5; color: #276749; border-color: #9ae6b4; }
+    .tag.blue  { background: #bee3f8; color: #2b6cb0; border-color: #90cdf4; }
+    .tag.orange{ background: #feebc8; color: #7b341e; border-color: #fbd38d; }
+    [data-theme="dark"] .tag.green  { background: #0a2d1a; color: #9ae6b4; }
+    [data-theme="dark"] .tag.blue   { background: #1a2a3a; color: #63b3ed; }
+    [data-theme="dark"] .tag.orange { background: #2d1a00; color: #fbd38d; }
+
+    /* ── 체크리스트 ── */
+    .checklist { list-style: none; }
+    .check-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 0; border-bottom: 1px solid var(--border2); cursor: pointer;
+    }
+    .check-item:last-child { border: none; }
+    .check-box {
+      width: 20px; height: 20px; border: 2px solid var(--border);
+      border-radius: 5px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; margin-top: 1px;
+    }
+    .check-item.checked .check-box { background: var(--primary); border-color: var(--primary); }
+    .check-item.checked .check-box::after { content: '✓'; color: white; font-size: 0.75rem; }
+    .check-item .text { font-size: 0.85rem; color: var(--text); }
+    .check-item.checked .text { text-decoration: line-through; color: var(--text-muted); }
+
+    /* ── 뱃지 ── */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 4px;
+      font-size: 0.7rem; font-weight: 700; margin-left: 6px; vertical-align: middle;
+    }
+    .badge.important { background: #fed7d7; color: #c53030; }
+    .badge.normal    { background: #e9d8fd; color: #553c9a; }
+    [data-theme="dark"] .badge.important { background: #2d0000; color: #fc8181; }
+    [data-theme="dark"] .badge.normal    { background: #2d1a4a; color: #d6bcfa; }
+
+    /* ── 프로그레스바 ── */
+    .progress-bar {
+      height: 10px; background: var(--border); border-radius: 10px;
+      overflow: hidden; margin-top: 8px;
+    }
+    .progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+
+    /* ── 버튼 ── */
+    .calc-btn {
+      background: var(--primary); color: white; padding: 11px 24px;
+      border: none; border-radius: 9px; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; margin-top: 8px; transition: background 0.2s;
+    }
+    .calc-btn:hover { background: var(--primary-dark); }
+
+    /* ── 팁 ── */
+    .tip {
+      font-size: 0.8rem; color: var(--text-muted); line-height: 1.65;
+      margin-top: 8px; padding: 10px 14px;
+      background: var(--surface2); border-radius: 9px;
+      border: 1px solid var(--border);
+      transition: background 0.25s;
+    }
+    .tip strong { color: var(--text-sub); }
+    .tip a { color: var(--primary); }
+
+    /* ── 구분선 ── */
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+    /* ── 도넛 차트 ── */
+    .donut-wrap {
+      display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    }
+    .donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 160px; }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px; font-size: 0.82rem;
+    }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+    }
+    .legend-label { color: var(--text-sub); flex: 1; }
+    .legend-val { font-weight: 700; color: var(--text); }
+
+    /* ── 청약 필터 버튼 ── */
+    .ck-filter {
+      padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text-sub); cursor: pointer; transition: all 0.2s;
+    }
+    .ck-filter.active, .ck-filter:hover {
+      background: var(--primary); border-color: var(--primary); color: white;
+    }
+
+    /* ── 청약 카드 ── */
+    .ck-card {
+      border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 16px; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .ck-card:hover { border-color: var(--primary); }
+    .ck-card.urgent { border-color: #fc8181; background: #fff5f5; }
+    [data-theme="dark"] .ck-card.urgent { background: #2d0a0a; border-color: #c53030; }
+    .ck-badge {
+      display: inline-block; padding: 2px 9px; border-radius: 20px;
+      font-size: 0.7rem; font-weight: 700; margin-right: 6px;
+    }
+    .ck-d-day {
+      font-size: 0.78rem; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; margin-left: auto;
+    }
+
+    /* ── 저축 플래너 ── */
+    .plan-bar-wrap { margin-bottom: 14px; }
+    .plan-bar-label {
+      display: flex; justify-content: space-between;
+      font-size: 0.82rem; margin-bottom: 5px;
+      color: var(--text-sub);
+    }
+    .plan-milestone {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0; border-bottom: 1px solid var(--border2);
+    }
+    .plan-milestone:last-child { border: none; }
+    .plan-milestone-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+
+    /* ── 관심 매물 카드 ── */
+    .saved-card {
+      border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 15px 16px; margin-bottom: 10px;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .saved-card:hover { border-color: var(--primary); }
+    .saved-type-badge {
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 0.72rem; font-weight: 700; flex-shrink: 0;
+    }
+
+    /* ── 지역 선택 버튼 ── */
+    .region-btn {
+      padding: 8px 4px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--text-sub); cursor: pointer; transition: all 0.2s;
+    }
+    .region-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .region-btn.active { background: var(--primary); border-color: var(--primary); color: white; font-weight: 700; }
+
+    /* ── 실시간 뉴스 ── */
+    .news-item {
+      display: block; padding: 11px 0;
+      border-bottom: 1px solid var(--border2);
+      text-decoration: none; transition: padding-left 0.15s;
+    }
+    .news-item:last-child { border: none; }
+    .news-item:hover { padding-left: 6px; }
+    .news-title {
+      font-size: 0.88rem; font-weight: 500; color: var(--text);
+      line-height: 1.45; margin-bottom: 3px;
+    }
+    .news-meta {
+      font-size: 0.74rem; color: var(--text-muted);
+    }
+
+    /* ── 모바일 반응형 ── */
+    @media (max-width: 480px) {
+      .header { padding: 16px; }
+      .header-left h1 { font-size: 1.2rem; }
+      .content { padding: 16px 12px; }
+      .card { padding: 16px; }
+      .tab-btn { padding: 11px 12px; font-size: 0.78rem; }
+      .result-box .big-num { font-size: 1.6rem; }
+      .donut-wrap { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>집 마련 분석 시스템</h1>
+    <p>주택 구매 의사결정을 위한 종합 분석 도구</p>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">다크모드</button>
+</div>
+
+<!-- 실시간 데이터 바 -->
+<div id="rt-bar" style="background:var(--surface2);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;font-size:0.76rem;color:var(--text-muted);transition:opacity 0.3s">
+  <span id="rt-rate" style="display:flex;align-items:center;gap:6px">
+    <span style="width:7px;height:7px;border-radius:50%;background:#a0aec0;display:inline-block"></span>
+    기준금리 불러오는 중...
+  </span>
+  <span id="rt-news-status" style="display:flex;align-items:center;gap:6px">
+    <span style="width:7px;height:7px;border-radius:50%;background:#a0aec0;display:inline-block"></span>
+    뉴스 불러오는 중...
+  </span>
+  <span style="margin-left:auto">
+    <button onclick="fetchRealtimeData()" style="font-size:0.74rem;color:var(--primary);background:none;border:none;cursor:pointer;padding:0">새로고침</button>
+  </span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showPanel(0)">예산 분석</button>
+  <button class="tab-btn" onclick="showPanel(1)">대출 시뮬레이션</button>
+  <button class="tab-btn" onclick="showPanel(2)">전세 vs 매매</button>
+  <button class="tab-btn" onclick="showPanel(3)">지역 추천</button>
+  <button class="tab-btn" onclick="showPanel(4)">매물 체크리스트</button>
+  <button class="tab-btn" onclick="showPanel(5)">정부 지원 제도</button>
+  <button class="tab-btn" onclick="showPanel(6)">시장 전망</button>
+  <button class="tab-btn" onclick="showPanel(7); syncListingBudget()">매물 탐색</button>
+  <button class="tab-btn" onclick="showPanel(8)">청약 일정</button>
+  <button class="tab-btn" onclick="showPanel(9)">저축 플래너</button>
+  <button class="tab-btn" onclick="showPanel(10); renderSaved()">관심 매물</button>
+  <button class="tab-btn" onclick="showPanel(11); fetchListings()">실거래가</button>
+  <button class="tab-btn" onclick="showPanel(12); fetchYoutube()">유튜브</button>
+</div>
+
+<div class="content">
+
+  <!-- ===== 탭 1: 예산 분석 ===== -->
+  <div class="panel active" id="panel-0">
+    <div class="card">
+      <h2>총 구매력 계산</h2>
+      <div class="input-row">
+        <div class="input-group">
+          <label>현금/예금 자산 (만원)</label>
+          <input type="number" id="cash" value="0" placeholder="예: 15000" oninput="calcBudget()" />
+        </div>
+        <div class="input-group">
+          <label>투자 자산 (주식·펀드 등, 만원)</label>
+          <input type="number" id="invest" value="0" placeholder="예: 5000" oninput="calcBudget()" />
+        </div>
+        <div class="input-group">
+          <label>예상 대출 금액 (만원)</label>
+          <input type="number" id="loan" value="0" placeholder="예: 15000" oninput="calcBudget()" />
+        </div>
+        <div class="input-group">
+          <label>결혼 비용 예비 제외액 (만원)</label>
+          <input type="number" id="reserve" value="0" placeholder="예: 3000" oninput="calcBudget()" />
+        </div>
+      </div>
+
+      <div class="result-box" id="budget-result">
+        <div class="label">실투입 가능한 총 예산</div>
+        <div class="big-num" id="total-budget">-</div>
+        <div class="sub" id="budget-sub"></div>
+      </div>
+
+      <div id="budget-warn" style="margin-top:0"></div>
+    </div>
+
+    <div class="card">
+      <h2>예산 구성</h2>
+      <div id="budget-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>예산 범위별 매물 수준</h2>
+      <div id="budget-tier"></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭 2: 대출 시뮬레이션 ===== -->
+  <div class="panel" id="panel-1">
+    <div class="card">
+      <h2>월 상환금 계산</h2>
+      <div class="input-row">
+        <div class="input-group">
+          <label>대출 금액 (만원)</label>
+          <input type="number" id="loan2" value="0" placeholder="예: 15000" oninput="calcLoan()" />
+        </div>
+        <div class="input-group">
+          <label>금리 (%)</label>
+          <input type="number" id="rate" value="4.0" step="0.1" oninput="calcLoan()" />
+        </div>
+        <div class="input-group">
+          <label>대출 기간 (년)</label>
+          <select id="years" onchange="calcLoan()">
+            <option value="10">10년</option>
+            <option value="20">20년</option>
+            <option value="30" selected>30년</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>부부 합산 월 소득 (만원)</label>
+          <input type="number" id="income" value="0" placeholder="예: 1000" oninput="calcLoan()" />
+        </div>
+      </div>
+
+      <div class="stat-grid" id="loan-stats"></div>
+      <div id="loan-dsr" style="margin-top:14px"></div>
+      <div class="tip" style="margin-top:14px">
+        <strong>2024년 DSR 규정:</strong> 규제지역(서울 전체·수도권 일부)에서 매매 대출 시 총부채원리금상환비율(DSR) <strong>40% 이하</strong>여야 합니다. 연소득 대비 연간 상환 원리금의 비율입니다.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>금리별 비교</h2>
+      <div id="rate-compare"></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭 3: 전세 vs 매매 ===== -->
+  <div class="panel" id="panel-2">
+    <div class="card">
+      <h2>전세 vs 매매 비교</h2>
+      <div class="input-row">
+        <div class="input-group">
+          <label>관심 아파트 예상 매매가 (만원)</label>
+          <input type="number" id="maemae-price" value="0" placeholder="예: 57000" oninput="calcCompare()" />
+        </div>
+        <div class="input-group">
+          <label>동일 아파트 전세가 (만원)</label>
+          <input type="number" id="jeonse-price" value="0" placeholder="예: 35000" oninput="calcCompare()" />
+        </div>
+        <div class="input-group">
+          <label>보유 자금 (만원)</label>
+          <input type="number" id="my-money" value="0" placeholder="예: 20000" oninput="calcCompare()" />
+        </div>
+        <div class="input-group">
+          <label>비교 기간 (년)</label>
+          <select id="comp-years" onchange="calcCompare()">
+            <option value="2">2년</option>
+            <option value="3" selected>3년</option>
+            <option value="5">5년</option>
+          </select>
+        </div>
+      </div>
+      <div class="compare-grid" id="compare-result"></div>
+      <div id="compare-verdict" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>전세 사기 예방 체크</h2>
+      <ul class="checklist" id="jeonse-safety"></ul>
+    </div>
+  </div>
+
+  <!-- ===== 탭 4: 지역 추천 ===== -->
+  <div class="panel" id="panel-3">
+
+    <!-- 지역 선택 -->
+    <div class="card">
+      <h2>지역 선택</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px" id="area-region-btns">
+        <button onclick="setAreaRegion('관악구')"  class="region-btn active">관악구</button>
+        <button onclick="setAreaRegion('동작구')"  class="region-btn">동작구</button>
+        <button onclick="setAreaRegion('영등포구')" class="region-btn">영등포구</button>
+        <button onclick="setAreaRegion('강남구')"  class="region-btn">강남구</button>
+        <button onclick="setAreaRegion('서초구')"  class="region-btn">서초구</button>
+        <button onclick="setAreaRegion('송파구')"  class="region-btn">송파구</button>
+        <button onclick="setAreaRegion('마포구')"  class="region-btn">마포구</button>
+        <button onclick="setAreaRegion('용산구')"  class="region-btn">용산구</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="area-title">관악구 지역 추천</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px" id="area-subtitle">역세권·교통·예산 조건 반영</p>
+      <ul class="area-list" id="area-list"></ul>
+    </div>
+
+    <div class="card">
+      <h2 id="area-tips-title">관악구 체크포인트</h2>
+      <div id="area-tips"></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭 5: 매물 체크리스트 ===== -->
+  <div class="panel" id="panel-4">
+    <div class="card">
+      <h2>현장 방문 체크리스트</h2>
+      <p style="font-size:0.82rem;color:#718096;margin-bottom:14px">클릭하면 완료 처리됩니다</p>
+      <ul class="checklist" id="checklist"></ul>
+    </div>
+    <div class="card">
+      <h2>계약 전 서류 확인</h2>
+      <ul class="checklist" id="docs-list"></ul>
+    </div>
+  </div>
+
+
+  <!-- ===== 탭 6: 정부 지원 제도 ===== -->
+  <div class="panel" id="panel-5">
+
+    <!-- 적합도 배너 -->
+    <div class="card" style="background:linear-gradient(135deg,#ebf8ff,#e9d8fd);border:none">
+      <h2 style="color:#2b6cb0">내 상황에 맞는 제도 우선순위</h2>
+      <p style="font-size:0.84rem;color:#4a5568;margin-bottom:14px">입력한 자산 · 소득 · 지역 조건 기준</p>
+      <div style="display:flex;flex-direction:column;gap:8px" id="priority-list"></div>
+    </div>
+
+    <!-- 1. 신혼부부 버팀목 전세대출 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#c6f6d5;color:#276749;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">전세대출</span>
+        <h2 style="margin:0">신혼부부 전용 버팀목 전세대출</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">결혼 후 전세로 시작할 때 가장 먼저 챙겨야 할 제도</p>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-item"><div class="num" style="color:#276749">1.9~3.3%</div><div class="desc">기본 금리</div></div>
+        <div class="stat-item"><div class="num">3억</div><div class="desc">수도권 최대 한도</div></div>
+        <div class="stat-item"><div class="num">7,500만</div><div class="desc">합산 연소득 상한</div></div>
+        <div class="stat-item"><div class="num">7년</div><div class="desc">혼인기간 이내</div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.82rem">
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">✅ 주요 조건</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 혼인신고일로부터 7년 이내</li>
+            <li>• 무주택 세대주 (세대원 포함)</li>
+            <li>• 전세보증금 수도권 5억 이하</li>
+            <li>• 전세금의 80% 이내 대출</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">💡 우대금리 항목</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 다자녀가구 0.5~1.0%p 추가</li>
+            <li>• 청약저축 가입자 우대</li>
+            <li>• 신규 혼인(2년 이내) 추가 우대</li>
+            <li>• 최저 적용금리 <strong>연 1.0%</strong> 가능</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tip" style="margin-top:12px">📌 신청: <a href="https://enhuf.molit.go.kr" target="_blank" style="color:#3182ce">기금e든든 (enhuf.molit.go.kr)</a> → 주택도시기금 → 전세대출 → 버팀목</div>
+    </div>
+
+    <!-- 2. 디딤돌 대출 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#bee3f8;color:#2b6cb0;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">주택구입</span>
+        <h2 style="margin:0">내집마련 디딤돌 대출 (신혼부부)</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">전세 이후 내 집 매수로 넘어갈 때 활용하는 정책 주담대</p>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-item"><div class="num" style="color:#2b6cb0">2.85~4.15%</div><div class="desc">금리 (2026년 기준)</div></div>
+        <div class="stat-item"><div class="num">4억</div><div class="desc">최대 대출 한도</div></div>
+        <div class="stat-item"><div class="num">7,000만</div><div class="desc">합산 연소득 상한</div></div>
+        <div class="stat-item"><div class="num">6억</div><div class="desc">주택가격 상한 (신혼)</div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.82rem">
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">✅ 주요 조건</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 무주택 세대주 (생애최초 우대)</li>
+            <li>• 주택가격 6억 이하 (신혼)</li>
+            <li>• LTV 70% / DTI 60% 이내</li>
+            <li>• 10·15·20·30년 상환 선택</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">💡 우대금리</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 신혼가구 <strong>0.2%p</strong> 우대 (5년)</li>
+            <li>• 생애최초 <strong>0.2%p</strong> 추가</li>
+            <li>• 1자녀 0.3%p / 2자녀 0.5%p</li>
+            <li>• 전자계약 체결 시 0.1%p</li>
+          </ul>
+        </div>
+      </div>
+      <div class="warn-box" style="margin-top:12px">⚠️ 부부합산 연소득이 7,000만원 초과이면 일반 디딤돌은 불가 → <strong>신생아 특례 대출</strong>이나 시중 주담대로 전환해야 합니다.</div>
+      <div class="tip" style="margin-top:8px">📌 신청: <a href="https://enhuf.molit.go.kr" target="_blank" style="color:#3182ce">기금e든든</a> → 주택도시기금 → 주택구입 → 디딤돌</div>
+    </div>
+
+    <!-- 3. 신생아 특례 대출 -->
+    <div class="card" style="border:2px solid #fed7e2">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#fed7e2;color:#c53030;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">⭐ 핵심 혜택</span>
+        <h2 style="margin:0">신생아 특례 대출 (구입 + 전세)</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">2년 내 출산 시 적용 — 1%대 금리, 소득 기준 파격 완화. 결혼 후 아이를 낳으면 즉시 적용 가능</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:#fff5f5;border:1.5px solid #feb2b2;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#c53030;margin-bottom:10px;font-size:0.9rem">🏠 구입 (신생아 특례 디딤돌)</div>
+          <div class="compare-card" style="background:none;border:none;padding:0">
+            <div class="row"><span class="key">금리</span><span class="val" style="color:#c53030">1.80~4.50%</span></div>
+            <div class="row"><span class="key">최대 한도</span><span class="val">4억원</span></div>
+            <div class="row"><span class="key">소득 기준</span><span class="val">부부합산 2억 이하</span></div>
+            <div class="row"><span class="key">주택가격</span><span class="val">9억 이하</span></div>
+            <div class="row"><span class="key">LTV/DTI</span><span class="val">70% / 60%</span></div>
+          </div>
+        </div>
+        <div style="background:#fff5f5;border:1.5px solid #feb2b2;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#c53030;margin-bottom:10px;font-size:0.9rem">🔑 전세 (신생아 특례 버팀목)</div>
+          <div class="compare-card" style="background:none;border:none;padding:0">
+            <div class="row"><span class="key">금리</span><span class="val" style="color:#c53030">최저 1.3%~</span></div>
+            <div class="row"><span class="key">최대 한도</span><span class="val">2.4억원</span></div>
+            <div class="row"><span class="key">소득 기준</span><span class="val">1.3억 (맞벌이 2억)</span></div>
+            <div class="row"><span class="key">전세금</span><span class="val">수도권 5억 이하</span></div>
+            <div class="row"><span class="key">대출 비율</span><span class="val">전세금 80%</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ok-box" style="margin-top:12px">✅ 합산 연소득 ~1.44억원 (월 1200만원)은 신생아 특례 전세 대출 조건에 해당합니다. 출산 후 즉시 신청 가능하니 결혼 후 출산 계획이 있다면 최우선 고려 대상입니다.</div>
+      <div class="tip" style="margin-top:8px">📌 신청: <a href="https://www.myhome.go.kr" target="_blank" style="color:#3182ce">마이홈 포털 (myhome.go.kr)</a> → 신생아 특례 대출</div>
+    </div>
+
+    <!-- 4. 신혼부부 특별공급 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#feebc8;color:#7b341e;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">청약</span>
+        <h2 style="margin:0">신혼부부 특별공급 청약</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">시세 대비 60~80% 수준으로 분양 — 당첨만 되면 즉시 자산 형성 효과</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.82rem">
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:8px">민영주택 특별공급</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 혼인 7년 이내 무주택</li>
+            <li>• 소득: 도시근로자 월평균 <strong>140%</strong> 이하</li>
+            <li>• 맞벌이: <strong>160%</strong> 이하</li>
+            <li>• 3인 이하 기준 약 <strong>월 1,054만원</strong> 이하</li>
+            <li>• 청약통장 6개월 이상</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:8px">공공분양 (뉴홈·LH)</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 혼인 7년 이내 or 6세 이하 자녀</li>
+            <li>• 소득: 도시근로자 <strong>130%</strong> 이하</li>
+            <li>• 맞벌이: <strong>200%</strong> 이하</li>
+            <li>• 자산: 부동산 <strong>2.155억</strong> 이하</li>
+            <li>• 자동차: <strong>4,542만원</strong> 이하</li>
+          </ul>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div style="font-size:0.82rem;color:#4a5568">
+        <div style="font-weight:700;margin-bottom:6px">가점 우대 항목</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="tag orange">자녀 수 많을수록 유리</span>
+          <span class="tag blue">혼인 기간 짧을수록 유리</span>
+          <span class="tag green">청약통장 납입 기간 길수록 유리</span>
+        </div>
+      </div>
+      <div class="tip" style="margin-top:12px">📌 청약: <a href="https://www.applyhome.co.kr" target="_blank" style="color:#3182ce">청약홈 (applyhome.co.kr)</a> | LH 공공분양: <a href="https://apply.lh.or.kr" target="_blank" style="color:#3182ce">LH청약플러스 (apply.lh.or.kr)</a></div>
+    </div>
+
+    <!-- 5. 신혼희망타운 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#e9d8fd;color:#553c9a;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">공공분양</span>
+        <h2 style="margin:0">신혼희망타운 (LH 공공분양)</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">신혼부부 전용 공공 아파트 — 시세의 70~80%로 분양 + 전용 저리 모기지</p>
+      <div class="stat-grid">
+        <div class="stat-item"><div class="num">7년</div><div class="desc">혼인기간 이내</div></div>
+        <div class="stat-item"><div class="num">130%</div><div class="desc">소득 기준 (맞벌이 200%)</div></div>
+        <div class="stat-item"><div class="num">3.62억</div><div class="desc">총 자산 상한</div></div>
+      </div>
+      <div class="tip" style="margin-top:12px">분양가의 최소 30% 이상을 신혼희망타운 전용 장기대출(저리)로 의무 가입해야 합니다. 수도권 물량은 주로 경기·인천에 공급되며, 서울 내 물량은 매우 적습니다.</div>
+    </div>
+
+    <!-- 생애최초 섹션 -->
+    <div class="card" style="border:2px solid #bee3f8">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#bee3f8;color:#2b6cb0;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">생애최초 전용</span>
+        <h2 style="margin:0">생애최초 주택구입 혜택 총정리</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">세대원 전원이 한 번도 주택을 소유한 적 없을 때 — 대출·청약 모두 추가 혜택 적용</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <!-- 생애최초 디딤돌 -->
+        <div style="background:#ebf8ff;border:1.5px solid #90cdf4;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#2b6cb0;margin-bottom:10px;font-size:0.9rem">🏠 생애최초 디딤돌 대출</div>
+          <div class="compare-card" style="background:none;border:none;padding:0">
+            <div class="row"><span class="key">금리</span><span class="val">2.85~4.15%</span></div>
+            <div class="row"><span class="key">생애최초 우대</span><span class="val" style="color:#276749">추가 0.2%p↓</span></div>
+            <div class="row"><span class="key">LTV</span><span class="val">80% (수도권 70%)</span></div>
+            <div class="row"><span class="key">소득 기준</span><span class="val">연 6,000만 이하</span></div>
+            <div class="row"><span class="key">신혼+생애최초</span><span class="val" style="color:#276749">연 8,500만까지</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:0.75rem;background:#fff;border-radius:6px;padding:8px;color:#4a5568">
+            💡 신혼부부이면서 생애최초이면 소득 기준 8,500만원 + 우대금리 중복 적용 가능
+          </div>
+        </div>
+
+        <!-- 생애최초 특별공급 -->
+        <div style="background:#f0fff4;border:1.5px solid #9ae6b4;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#276749;margin-bottom:10px;font-size:0.9rem">🎯 생애최초 특별공급 청약</div>
+          <div class="compare-card" style="background:none;border:none;padding:0">
+            <div class="row"><span class="key">혼인 기간</span><span class="val">제한 없음</span></div>
+            <div class="row"><span class="key">민영 소득</span><span class="val">월평균 <strong>160%</strong> 이하</span></div>
+            <div class="row"><span class="key">공공 소득</span><span class="val">월평균 <strong>130%</strong> 이하</span></div>
+            <div class="row"><span class="key">민영 자산</span><span class="val" style="color:#276749">기준 없음</span></div>
+            <div class="row"><span class="key">공공 자산</span><span class="val">부동산 3.31억↓</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:0.75rem;background:#fff;border-radius:6px;padding:8px;color:#4a5568">
+            💡 혼인기간 제한이 없어 신혼부부 특공과 <strong>중복 지원 불가</strong> — 둘 중 하나 선택
+          </div>
+        </div>
+      </div>
+
+      <!-- 신혼 vs 생애최초 특공 비교 -->
+      <div style="font-weight:700;color:#4a5568;margin-bottom:10px;font-size:0.88rem">신혼부부 특공 vs 생애최초 특공 — 어느 게 유리할까?</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+          <thead>
+            <tr style="background:#edf2f7">
+              <th style="padding:9px 8px;text-align:left;color:#4a5568;border-bottom:2px solid #e2e8f0">항목</th>
+              <th style="padding:9px 8px;text-align:center;color:#276749;border-bottom:2px solid #e2e8f0">신혼부부 특공</th>
+              <th style="padding:9px 8px;text-align:center;color:#2b6cb0;border-bottom:2px solid #e2e8f0">생애최초 특공</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">혼인 기간</td><td style="text-align:center;color:#276749;font-weight:600">7년 이내만</td><td style="text-align:center;color:#2b6cb0;font-weight:600">제한 없음</td></tr>
+            <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">소득 기준 (민영)</td><td style="text-align:center">140% (맞벌이 160%)</td><td style="text-align:center">160% 동일</td></tr>
+            <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">자녀 가점</td><td style="text-align:center;color:#276749;font-weight:600">자녀수 가점 큼</td><td style="text-align:center">가점 없음</td></tr>
+            <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">추첨 비율</td><td style="text-align:center">가점 위주</td><td style="text-align:center;color:#2b6cb0;font-weight:600">추첨 100%</td></tr>
+            <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:8px">자산 기준 (민영)</td><td style="text-align:center">없음</td><td style="text-align:center">없음</td></tr>
+            <tr><td style="padding:8px">추천 상황</td><td style="text-align:center;font-size:0.75rem;color:#276749">자녀 있거나 혼인 초기</td><td style="text-align:center;font-size:0.75rem;color:#2b6cb0">소득 높고 자녀 없을 때</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="first-buyer-fit" style="margin-top:14px"></div>
+    </div>
+
+    <!-- 보금자리론 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#e9d8fd;color:#553c9a;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">반정책 고정금리</span>
+        <h2 style="margin:0">보금자리론 (한국주택금융공사)</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">디딤돌보다 소득 기준이 넓고, 시중 주담대보다 금리가 낮은 중간 다리. 만기까지 <strong>고정금리</strong>라 금리 변동 위험이 없음</p>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-item"><div class="num" style="color:#553c9a">3.05~4.25%</div><div class="desc">고정금리 (만기까지)</div></div>
+        <div class="stat-item"><div class="num">3.6억</div><div class="desc">기본 최대 한도</div></div>
+        <div class="stat-item"><div class="num">7,000만</div><div class="desc">연소득 상한 (신혼 8,500만)</div></div>
+        <div class="stat-item"><div class="num">최장 50년</div><div class="desc">상환 기간</div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.82rem">
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">✅ 주요 조건</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 무주택 세대주 (생애최초 아니어도 됨)</li>
+            <li>• 주택가격 <strong>6억 이하</strong></li>
+            <li>• LTV 70% 이내</li>
+            <li>• 소득 제한 있으나 디딤돌보다 넓음</li>
+          </ul>
+        </div>
+        <div>
+          <div style="font-weight:700;color:#4a5568;margin-bottom:6px">💡 우대금리 항목</div>
+          <ul style="list-style:none;color:#4a5568;line-height:2">
+            <li>• 신혼부부 우대 0.2%p</li>
+            <li>• 생애최초 0.1%p</li>
+            <li>• 다자녀 최대 0.5%p</li>
+            <li>• 생애최초+신혼 중복 적용 가능</li>
+          </ul>
+        </div>
+      </div>
+      <div class="warn-box" style="margin-top:12px">⚠️ 합산 연소득 1억+ 이면 보금자리론도 소득 기준 초과. 신혼부부 기준 8,500만원이 상한선 — 월 800만원 이상이면 초과 가능성 있습니다.</div>
+      <div class="tip" style="margin-top:8px">📌 신청: <a href="https://www.hf.go.kr" target="_blank" style="color:#3182ce">한국주택금융공사 (hf.go.kr)</a> → 보금자리론</div>
+    </div>
+
+    <!-- 시중은행 일반 주담대 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="background:#e2e8f0;color:#4a5568;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:20px">시중은행</span>
+        <h2 style="margin:0">일반 주택담보대출 (시중은행)</h2>
+      </div>
+      <p style="font-size:0.8rem;color:#718096;margin-bottom:14px">소득·집값 제한 없음 — 정책대출 조건이 안 맞을 때 선택. 대신 금리가 가장 높음</p>
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-item"><div class="num" style="color:#e53e3e">4.32~7.01%</div><div class="desc">5대 은행 혼합형 (2026년)</div></div>
+        <div class="stat-item"><div class="num">DSR 40%</div><div class="desc">실질 한도 결정 기준</div></div>
+        <div class="stat-item"><div class="num">제한없음</div><div class="desc">소득·주택가격 조건</div></div>
+      </div>
+      <div class="divider"></div>
+      <div style="font-size:0.82rem;margin-bottom:10px">
+        <div style="font-weight:700;color:#4a5568;margin-bottom:8px">금리 유형 3가지 선택</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="padding:10px 12px;border-radius:8px;background:#fff5f5;border:1px solid #fed7d7">
+            <span style="font-weight:700;color:#c53030">변동형</span> <span style="color:#718096;font-size:0.78rem">— 6개월마다 금리 변경. 지금 같은 금리 상승기엔 불리. 초기 금리 낮음</span>
+          </div>
+          <div style="padding:10px 12px;border-radius:8px;background:#ebf8ff;border:1px solid #90cdf4">
+            <span style="font-weight:700;color:#2b6cb0">혼합형 (5년고정)</span> <span style="color:#718096;font-size:0.78rem">— 5년 고정 후 변동 전환. 현재 가장 많이 선택. 4.5~5.5% 수준</span>
+          </div>
+          <div style="padding:10px 12px;border-radius:8px;background:#f0fff4;border:1px solid #9ae6b4">
+            <span style="font-weight:700;color:#276749">고정형 (장기)</span> <span style="color:#718096;font-size:0.78rem">— 만기까지 고정. 안정적이나 보금자리론보다 금리 높음. 4.8~6% 수준</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:0.82rem;margin-bottom:10px">
+        <div style="font-weight:700;color:#4a5568;margin-bottom:8px">은행별 현재 금리 수준 (2026년 기준)</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px" id="bank-rates">
+          <div class="stat-item"><div class="num" style="font-size:0.9rem">NH농협</div><div class="desc">비교적 낮음</div></div>
+          <div class="stat-item"><div class="num" style="font-size:0.9rem">신한</div><div class="desc">중간</div></div>
+          <div class="stat-item"><div class="num" style="font-size:0.9rem">우리</div><div class="desc">중간</div></div>
+          <div class="stat-item"><div class="num" style="font-size:0.9rem">국민</div><div class="desc">중간</div></div>
+          <div class="stat-item"><div class="num" style="font-size:0.9rem">하나</div><div class="desc">중간~높음</div></div>
+        </div>
+      </div>
+      <div class="warn-box" style="margin-top:4px">⚠️ 2026년 4월부터 대출금액 2.49억 초과 시 <strong>고액 주담대 가산금리 0.3%p 추가</strong> 적용. 실수요자도 영향받으니 반드시 확인 필요.</div>
+      <div class="tip" style="margin-top:8px">📌 은행별 실시간 금리 비교: <a href="https://portal.kfb.or.kr/compare/loan_household_new.php" target="_blank" style="color:#3182ce">전국은행연합회 소비자포털</a></div>
+    </div>
+
+    <!-- 요약 비교표 -->
+    <div class="card">
+      <h2>제도 비교</h2>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+          <thead>
+            <tr style="background:#edf2f7">
+              <th style="padding:10px 8px;text-align:left;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">제도명</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">유형</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">금리/혜택</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">한도</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">소득 기준</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:700;color:#4a5568;border-bottom:2px solid #e2e8f0">내 적합도</th>
+            </tr>
+          </thead>
+          <tbody id="compare-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ===== 탭 7: 시장 전망 클리핑 ===== -->
+  <div class="panel" id="panel-6">
+
+    <!-- 실시간 뉴스 클리핑 -->
+    <div class="card" id="live-news-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h2 style="margin:0">실시간 뉴스 클리핑</h2>
+          <p style="font-size:0.76rem;color:var(--text-muted);margin-top:3px" id="news-source-label">자동 업데이트</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="news-badge" style="font-size:0.72rem;color:var(--text-muted);background:var(--surface2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)">불러오는 중...</div>
+          <button onclick="fetchNewsRSS()" style="font-size:0.75rem;color:var(--primary);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer">새로고침</button>
+        </div>
+      </div>
+
+      <!-- 키워드 필터 -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="news-filters">
+        <button onclick="filterNews('전체')"  class="ck-filter active" data-nf="전체">전체</button>
+        <button onclick="filterNews('금리')"  class="ck-filter" data-nf="금리">금리</button>
+        <button onclick="filterNews('규제')"  class="ck-filter" data-nf="규제">규제</button>
+        <button onclick="filterNews('청약')"  class="ck-filter" data-nf="청약">청약</button>
+        <button onclick="filterNews('전세')"  class="ck-filter" data-nf="전세">전세</button>
+      </div>
+
+      <div id="live-news">
+        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.85rem">뉴스를 불러오는 중입니다...</div>
+      </div>
+    </div>
+
+    <!-- 지금 살 때인가 요약 카드 -->
+    <div class="card" style="border:1px solid var(--border)" id="market-analysis-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0" id="market-title">지금 살 때인가</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="market-date" style="font-size:0.75rem;color:var(--text-muted);background:var(--surface2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)"></span>
+          <button onclick="runAnalysis()" id="analyze-btn"
+            style="font-size:0.78rem;font-weight:600;color:white;background:#7c3aed;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;transition:opacity 0.2s">
+            AI 분석 새로고침
+          </button>
+        </div>
+      </div>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px" id="market-sub">최신 뉴스 기반 · AI 분석</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" id="market-pros-cons"></div>
+      <div style="margin-top:14px;background:var(--surface2);border-radius:10px;padding:14px 16px;font-size:0.83rem;color:var(--text-sub);border:1px solid var(--border)" id="market-verdict"></div>
+    </div>
+
+    <!-- 정책 타임라인 -->
+    <div class="card">
+      <h2 id="timeline-title">부동산 정책 타임라인</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px">집값에 직접 영향을 주는 정책만 정리</p>
+      <div id="timeline"></div>
+    </div>
+
+    <!-- 집값 변수 -->
+    <div class="card">
+      <h2 id="variables-title">집값 4대 변수</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px" id="variables"></div>
+    </div>
+
+    <!-- 지역 시장 분석 -->
+    <div class="card" style="border:1px solid var(--border)">
+      <h2>관악구 시장 분석</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:14px">서울 전체 전망과 관악구가 다를 수 있는 이유</p>
+      <div style="display:flex;flex-direction:column;gap:10px" id="gwanak-analysis"></div>
+    </div>
+
+    <!-- 출처 -->
+    <div class="card">
+      <h2>출처</h2>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px">직접 읽어볼 수 있는 기사·보고서 링크</p>
+      <div id="clip-sources"></div>
+    </div>
+
+  </div>
+
+
+  <!-- ===== 탭 8: 매물 탐색 ===== -->
+  <div class="panel" id="panel-7">
+
+    <!-- 현재 검색 조건 요약 -->
+    <div class="card" style="background:linear-gradient(135deg,#2d3748,#4a5568);color:white;border:none">
+      <h2 style="color:white;margin-bottom:12px">📋 현재 검색 조건</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="listing-summary">
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:0.7rem;opacity:0.7;margin-bottom:4px">총 예산</div>
+          <div id="ls-budget" style="font-size:1.1rem;font-weight:700">-</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:0.7rem;opacity:0.7;margin-bottom:4px">매매 가능 범위</div>
+          <div id="ls-maemae" style="font-size:1.1rem;font-weight:700">-</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:0.7rem;opacity:0.7;margin-bottom:4px">전세 가능 범위</div>
+          <div id="ls-jeonse" style="font-size:1.1rem;font-weight:700">-</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:0.7rem;opacity:0.7;margin-bottom:4px">검색 지역</div>
+          <div id="ls-region-display" style="font-size:0.95rem;font-weight:700">관악구</div>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;opacity:0.6;margin-top:10px">* 예산 탭의 입력값 기준으로 자동 계산됩니다</div>
+    </div>
+
+    <!-- 지역 선택 -->
+    <div class="card">
+      <h2>지역 선택</h2>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px" id="region-btns">
+        <button onclick="setRegion('관악구')"  class="region-btn active">관악구</button>
+        <button onclick="setRegion('동작구')"  class="region-btn">동작구</button>
+        <button onclick="setRegion('영등포구')" class="region-btn">영등포구</button>
+        <button onclick="setRegion('강남구')"  class="region-btn">강남구</button>
+        <button onclick="setRegion('서초구')"  class="region-btn">서초구</button>
+        <button onclick="setRegion('송파구')"  class="region-btn">송파구</button>
+        <button onclick="setRegion('마포구')"  class="region-btn">마포구</button>
+        <button onclick="setRegion('용산구')"  class="region-btn">용산구</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input type="text" id="region-custom" placeholder="직접 입력 (예: 성동구)"
+          style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;background:var(--input-bg);color:var(--text);outline:none"/>
+        <button onclick="setRegion(document.getElementById('region-custom').value)"
+          class="calc-btn" style="margin-top:0;padding:9px 16px">적용</button>
+      </div>
+    </div>
+
+    <!-- 거래 유형 선택 -->
+    <div class="card">
+      <h2>어떤 매물을 볼까요?</h2>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button onclick="setListingType('maemae')" id="btn-maemae"
+          style="flex:1;padding:12px;border-radius:8px;border:2px solid #3182ce;background:#3182ce;color:white;font-weight:700;cursor:pointer;font-size:0.9rem">
+          🏠 매매
+        </button>
+        <button onclick="setListingType('jeonse')" id="btn-jeonse"
+          style="flex:1;padding:12px;border-radius:8px;border:2px solid #e2e8f0;background:white;color:#4a5568;font-weight:700;cursor:pointer;font-size:0.9rem">
+          🔑 전세
+        </button>
+      </div>
+      <div id="listing-type-desc" style="font-size:0.82rem;color:#4a5568;background:#f7fafc;padding:10px 14px;border-radius:8px"></div>
+    </div>
+
+    <!-- 플랫폼 바로가기 -->
+    <div class="card">
+      <h2>플랫폼 바로가기</h2>
+      <p style="font-size:0.82rem;color:#718096;margin-bottom:14px">버튼 클릭 시 관악구 필터가 적용된 검색 페이지로 이동합니다</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="platform-links"></div>
+    </div>
+
+    <!-- 주요 단지 직접 링크 -->
+    <div class="card">
+      <h2 id="complex-title">관악구 주요 단지</h2>
+      <p style="font-size:0.82rem;color:#718096;margin-bottom:14px">호갱노노 실거래가 페이지로 직접 연결 · 예산 범위 내 단지 강조 표시</p>
+      <div id="complex-list"></div>
+    </div>
+
+    <!-- 각 플랫폼 사용법 -->
+    <div class="card">
+      <h2>플랫폼별 사용 가이드</h2>
+      <div style="display:flex;flex-direction:column;gap:10px" id="platform-guide"></div>
+    </div>
+
+  </div>
+
+  <!-- ===== 탭 9: 청약 일정 ===== -->
+  <div class="panel" id="panel-8">
+
+    <div class="card">
+      <h2>2025~2026 청약 일정</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px">신혼부부·생애최초·공공분양 위주로 정리 · 마감임박 순 정렬</p>
+
+      <!-- 필터 -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="cheongyak-filters">
+        <button onclick="filterCheongyak('all')"    class="ck-filter active" data-f="all">전체</button>
+        <button onclick="filterCheongyak('신혼부부')" class="ck-filter" data-f="신혼부부">신혼부부</button>
+        <button onclick="filterCheongyak('생애최초')" class="ck-filter" data-f="생애최초">생애최초</button>
+        <button onclick="filterCheongyak('공공분양')" class="ck-filter" data-f="공공분양">공공분양</button>
+        <button onclick="filterCheongyak('민영')"    class="ck-filter" data-f="민영">민영</button>
+      </div>
+
+      <div id="cheongyak-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>청약 준비 체크리스트</h2>
+      <ul class="checklist" id="cheongyak-checklist"></ul>
+    </div>
+
+  </div>
+
+  <!-- ===== 탭 10: 저축 플래너 ===== -->
+  <div class="panel" id="panel-9">
+
+    <div class="card">
+      <h2>저축 플래너</h2>
+      <div class="input-row">
+        <div class="input-group">
+          <label>현재 총 자산 (만원)</label>
+          <input type="number" id="plan-current" value="0" placeholder="예: 15000" oninput="calcPlan()"/>
+        </div>
+        <div class="input-group">
+          <label>목표 자산 (만원)</label>
+          <input type="number" id="plan-target"  value="0" placeholder="예: 30000" oninput="calcPlan()"/>
+        </div>
+        <div class="input-group">
+          <label>월 저축 가능 금액 (만원)</label>
+          <input type="number" id="plan-monthly" value="0" placeholder="예: 300" oninput="calcPlan()"/>
+        </div>
+        <div class="input-group">
+          <label>연 예상 수익률 (%)</label>
+          <input type="number" id="plan-rate"    value="3.5" step="0.1" oninput="calcPlan()"/>
+        </div>
+      </div>
+      <div id="plan-result"></div>
+    </div>
+
+    <div class="card">
+      <h2>자산 목표 마일스톤</h2>
+      <div id="plan-milestones"></div>
+    </div>
+
+    <div class="card">
+      <h2>자산 성장 시뮬레이션</h2>
+      <div id="plan-chart"></div>
+    </div>
+
+  </div>
+
+  <!-- ===== 탭 11: 관심 매물 ===== -->
+  <div class="panel" id="panel-10">
+
+    <!-- 추가 폼 -->
+    <div class="card">
+      <h2>관심 매물 저장</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px">브라우저에 저장됩니다 — 새로고침해도 유지돼요</p>
+      <div class="input-row">
+        <div class="input-group">
+          <label>단지명</label>
+          <input type="text" id="sv-name" placeholder="예: 관악산 휴먼시아 2단지"/>
+        </div>
+        <div class="input-group">
+          <label>거래 유형</label>
+          <select id="sv-type">
+            <option value="매매">🏠 매매</option>
+            <option value="전세">🔑 전세</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>가격 (만원)</label>
+          <input type="number" id="sv-price" placeholder="예: 57000"/>
+        </div>
+        <div class="input-group">
+          <label>면적</label>
+          <input type="text" id="sv-size" placeholder="예: 59㎡ (18평)"/>
+        </div>
+      </div>
+      <div class="input-group" style="margin-bottom:12px">
+        <label>메모</label>
+        <input type="text" id="sv-memo" placeholder="예: 역 도보 10분, 남향, 관리비 낮음"/>
+      </div>
+      <div class="input-group" style="margin-bottom:14px">
+        <label>링크 (호갱노노·네이버 등)</label>
+        <input type="text" id="sv-url" placeholder="https://..."/>
+      </div>
+      <button class="calc-btn" onclick="addSaved()">+ 관심 매물 추가</button>
+    </div>
+
+    <!-- 저장 목록 -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="margin:0">저장된 매물 <span id="saved-count" style="font-size:0.85rem;color:var(--text-muted);font-weight:400"></span></h2>
+        <button onclick="clearAllSaved()" style="font-size:0.78rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer">전체 삭제</button>
+      </div>
+      <div id="saved-list"></div>
+    </div>
+
+    <!-- 비교 요약 -->
+    <div class="card" id="saved-compare-card" style="display:none">
+      <h2>저장 매물 비교</h2>
+      <div id="saved-compare"></div>
+    </div>
+
+  </div>
+
+  <!-- ===== 탭 12: 실거래가 검색 ===== -->
+  <div class="panel" id="panel-11">
+
+    <div class="card">
+      <h2>아파트 실거래가 조회</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px">국토교통부 공식 데이터 · 실제 계약된 거래만 표시</p>
+
+      <div class="input-row">
+        <div class="input-group">
+          <label>지역 선택</label>
+          <select id="lt-lawd" onchange="fetchListings()">
+            <option value="11620">서울 관악구</option>
+            <option value="11590">서울 동작구</option>
+            <option value="11545">서울 금천구</option>
+            <option value="11560">서울 영등포구</option>
+            <option value="11650">서울 서초구</option>
+            <option value="11680">서울 강남구</option>
+            <option value="11710">서울 송파구</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>거래 월</label>
+          <select id="lt-month" onchange="fetchListings()">
+          </select>
+        </div>
+        <div class="input-group">
+          <label>최대 가격 (만원, 0=전체)</label>
+          <input type="number" id="lt-maxprice" value="0" placeholder="예: 70000" oninput="renderListingTable()"/>
+        </div>
+        <div class="input-group">
+          <label>단지명 검색</label>
+          <input type="text" id="lt-name" placeholder="예: 푸르지오" oninput="renderListingTable()"/>
+        </div>
+      </div>
+
+      <button class="calc-btn" onclick="fetchListings()" id="lt-btn">조회하기</button>
+    </div>
+
+    <div class="card" id="lt-result-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <h2 style="margin:0">조회 결과 <span id="lt-count" style="font-size:0.85rem;color:var(--text-muted);font-weight:400"></span></h2>
+        <span id="lt-status" style="font-size:0.75rem;color:var(--text-muted)"></span>
+      </div>
+      <div id="lt-table">
+        <div style="text-align:center;padding:30px;color:var(--text-muted)">위에서 지역과 월을 선택하고 조회하세요.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== 탭 13: 유튜브 ===== -->
+  <div class="panel" id="panel-12">
+
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h2 style="margin:0">부동산 추천 영상</h2>
+          <p style="font-size:0.76rem;color:var(--text-muted);margin-top:3px">송희구 작가 · 부읽남 · 월급쟁이부자들 · 슈카월드</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="yt-badge" style="font-size:0.72rem;color:var(--text-muted);background:var(--surface2);padding:4px 10px;border-radius:20px;border:1px solid var(--border)">불러오는 중...</div>
+          <button onclick="fetchYoutube()" style="font-size:0.75rem;color:var(--primary);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer">새로고침</button>
+        </div>
+      </div>
+
+      <!-- 채널 필터 -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="yt-filters">
+        <button onclick="filterYoutube('전체')"          class="ck-filter active" data-yf="전체">전체</button>
+        <button onclick="filterYoutube('송희구 작가')"   class="ck-filter" data-yf="송희구 작가">송희구 작가</button>
+        <button onclick="filterYoutube('부동산 읽어주는 남자')" class="ck-filter" data-yf="부동산 읽어주는 남자">부읽남</button>
+        <button onclick="filterYoutube('월급쟁이부자들 TV')" class="ck-filter" data-yf="월급쟁이부자들 TV">월급쟁이부자들</button>
+        <button onclick="filterYoutube('슈카월드')" class="ck-filter" data-yf="슈카월드">슈카월드</button>
+      </div>
+
+      <div id="yt-list">
+        <div style="text-align:center;padding:30px;color:var(--text-muted)">영상을 불러오는 중입니다...</div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /content -->
+
+<script>
+// ============================================================
+// 탭 전환
+// ============================================================
+function showPanel(idx) {
+  document.querySelectorAll('.panel').forEach((p, i) => {
+    p.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+}
+
+// ============================================================
+// 탭 1: 예산 분석
+// ============================================================
+function fmt(n) {
+  if (n >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + '억';
+  return n.toLocaleString() + '만';
+}
+
+function calcBudget() {
+  const cash = +document.getElementById('cash').value || 0;
+  const inv  = +document.getElementById('invest').value || 0;
+  const loan = +document.getElementById('loan').value || 0;
+  const res  = +document.getElementById('reserve').value || 0;
+  const total = cash + inv + loan - res;
+
+  document.getElementById('total-budget').textContent = fmt(total) + '원';
+  document.getElementById('budget-sub').textContent =
+    `현금/예금 ${fmt(cash)} + 투자자산 ${fmt(inv)} + 대출 ${fmt(loan)} − 결혼비용 ${fmt(res)}`;
+
+  // 경고 박스
+  const warnEl = document.getElementById('budget-warn');
+  if (loan / (cash + inv) > 0.8) {
+    warnEl.innerHTML = '<div class="warn-box">⚠️ 대출 비중이 자산의 80%를 넘습니다. 금리 인상 시 상환 부담이 커질 수 있으니 보수적으로 계획하세요.</div>';
+  } else {
+    warnEl.innerHTML = '<div class="ok-box">✅ 대출 비중이 적정 수준입니다. 급격한 금리 변동에도 관리 가능한 범위입니다.</div>';
+  }
+
+  // 도넛 차트
+  const chartEl = document.getElementById('budget-chart');
+  const segments = [
+    { label:'현금/예금', value: cash, color:'#48bb78' },
+    { label:'투자자산',  value: inv,  color:'#4299e1' },
+    { label:'대출',      value: loan, color:'#ed8936' },
+    { label:'예비금 차감', value: res, color:'#fc8181' },
+  ].filter(s => s.value > 0);
+
+  const svgSize = 160, cx = 80, cy = 80, R = 62, r = 40;
+  const totalVal = segments.reduce((s, g) => s + g.value, 0);
+  let svgPaths = '', startA = -Math.PI / 2;
+
+  if (totalVal > 0) {
+    segments.forEach(seg => {
+      const angle = (seg.value / totalVal) * 2 * Math.PI;
+      const endA = startA + angle;
+      const x1 = cx + R * Math.cos(startA), y1 = cy + R * Math.sin(startA);
+      const x2 = cx + R * Math.cos(endA),   y2 = cy + R * Math.sin(endA);
+      const ix1= cx + r * Math.cos(startA), iy1= cy + r * Math.sin(startA);
+      const ix2= cx + r * Math.cos(endA),   iy2= cy + r * Math.sin(endA);
+      const lg = angle > Math.PI ? 1 : 0;
+      svgPaths += `<path d="M${x1},${y1} A${R},${R} 0 ${lg},1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${lg},0 ${ix1},${iy1}Z" fill="${seg.color}"/>`;
+      startA = endA;
+    });
+  } else {
+    svgPaths = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="#e2e8f0"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)"/>`;
+  }
+
+  const assetTotal = cash + inv;
+  const ratio = totalVal > 0 ? Math.round(assetTotal / totalVal * 100) : 0;
+
+  chartEl.innerHTML = `
+    <div class="donut-wrap">
+      <svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="flex-shrink:0">
+        ${svgPaths}
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)"/>
+        <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="20" font-weight="800" fill="var(--primary)">${ratio}%</text>
+        <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="10" fill="var(--text-muted)">자기자금</text>
+      </svg>
+      <div class="donut-legend">
+        ${segments.map(s => `
+          <div class="legend-item">
+            <div class="legend-dot" style="background:${s.color}"></div>
+            <span class="legend-label">${s.label}</span>
+            <span class="legend-val">${fmt(s.value)}</span>
+          </div>
+        `).join('')}
+        <div class="legend-item" style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border)">
+          <div class="legend-dot" style="background:var(--primary)"></div>
+          <span class="legend-label" style="font-weight:700">총 예산</span>
+          <span class="legend-val" style="color:var(--primary)">${fmt(total)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="tip" style="margin-top:14px">자기자금 비율 <strong>${ratio}%</strong> — 일반적으로 <strong>50% 이상</strong>이면 안정적인 매입 구조입니다. LTV 규제지역 기준 70% 이내 적용됩니다.</div>
+  `;
+
+  // 매물 수준
+  const tierEl = document.getElementById('budget-tier');
+  let tiers = [];
+  if (total >= 60000) tiers.push({ range: '6억+', desc: '관악구 서울대입구·낙성대 24평 매매 가능 / 동작구 사당·이수 전세', color: '#3182ce' });
+  if (total >= 50000) tiers.push({ range: '5억~6억', desc: '관악구 신림역 도보권 18~20평 매매 직접 가능 (실거래 5.7억대 존재)', color: '#38a169' });
+  if (total >= 35000) tiers.push({ range: '3.5억~5억', desc: '관악구 신림·봉천 전세 입주 가능 / 금천구 소형 매매 검토 가능', color: '#d69e2e' });
+  if (total < 35000) tiers.push({ range: '3.5억 미만', desc: '관악구 전세는 가능하나 매매는 어려운 구간. 1~2년 추가 저축 후 재도전 권장', color: '#e53e3e' });
+
+  tierEl.innerHTML = tiers.map(t => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f7fafc;border-radius:8px;margin-bottom:8px;border-left:4px solid ${t.color}">
+      <div style="font-size:0.95rem;font-weight:700;color:${t.color};min-width:120px">${t.range}</div>
+      <div style="font-size:0.82rem;color:#4a5568">${t.desc}</div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// 탭 2: 대출 시뮬레이션
+// ============================================================
+function calcLoan() {
+  const P = (+document.getElementById('loan2').value || 0) * 10000;
+  const annualRate = (+document.getElementById('rate').value || 4) / 100;
+  const r = annualRate / 12;
+  const n = (+document.getElementById('years').value || 30) * 12;
+  const income = (+document.getElementById('income').value || 1000) * 10000;
+
+  const monthly = r > 0 ? P * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1) : P / n;
+  const totalPay = monthly * n;
+  const totalInterest = totalPay - P;
+  const dsrRatio = (monthly * 12) / (income * 12) * 100;
+
+  const statsEl = document.getElementById('loan-stats');
+  statsEl.innerHTML = `
+    <div class="stat-item"><div class="num">${Math.round(monthly/10000).toLocaleString()}만</div><div class="desc">월 상환금</div></div>
+    <div class="stat-item"><div class="num">${Math.round(totalInterest/10000).toLocaleString()}만</div><div class="desc">총 이자 부담</div></div>
+    <div class="stat-item"><div class="num">${dsrRatio.toFixed(1)}%</div><div class="desc">DSR 비율</div></div>
+  `;
+
+  const dsrEl = document.getElementById('loan-dsr');
+  const dsrColor = dsrRatio <= 40 ? '#276749' : dsrRatio <= 50 ? '#7b341e' : '#c53030';
+  const dsrBg = dsrRatio <= 40 ? '#f0fff4' : dsrRatio <= 50 ? '#fffaf0' : '#fff5f5';
+  const dsrBorder = dsrRatio <= 40 ? '#9ae6b4' : dsrRatio <= 50 ? '#fbd38d' : '#feb2b2';
+  const dsrMsg = dsrRatio <= 40 ? `✅ DSR ${dsrRatio.toFixed(1)}% — 규제지역 기준 통과 (40% 이하)` :
+                 dsrRatio <= 50 ? `⚠️ DSR ${dsrRatio.toFixed(1)}% — 규제지역 기준 초과. 대출 한도 축소되거나 거절될 수 있음` :
+                                  `❌ DSR ${dsrRatio.toFixed(1)}% — 대출 승인 어려울 수 있음. 대출금 축소 권장`;
+  dsrEl.innerHTML = `<div style="background:${dsrBg};border:1.5px solid ${dsrBorder};border-radius:10px;padding:14px 18px;font-size:0.85rem;color:${dsrColor};font-weight:600">${dsrMsg}</div>`;
+
+  // 금리별 비교
+  const rates = [3.0, 3.5, 4.0, 4.5, 5.0];
+  const rateEl = document.getElementById('rate-compare');
+  rateEl.innerHTML = rates.map(rt => {
+    const rr = rt / 100 / 12;
+    const m = rr > 0 ? P * rr * Math.pow(1+rr,n) / (Math.pow(1+rr,n) - 1) : P / n;
+    const barW = Math.min(100, (m / (P / n * 1.8)) * 100);
+    const isSelected = Math.abs(rt - (+document.getElementById('rate').value || 4)) < 0.01;
+    return `
+      <div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:${isSelected?'#ebf8ff':'#f7fafc'};border:1.5px solid ${isSelected?'#90cdf4':'#e2e8f0'}">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:0.82rem;font-weight:600;color:#4a5568">금리 ${rt}%</span>
+          <span style="font-size:0.82rem;font-weight:700;color:#2d3748">월 ${Math.round(m/10000).toLocaleString()}만원</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${barW}%;background:#4299e1"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// 탭 3: 전세 vs 매매
+// ============================================================
+function calcCompare() {
+  const mm  = +document.getElementById('maemae-price').value || 0;
+  const jp  = +document.getElementById('jeonse-price').value || 0;
+  const my  = +document.getElementById('my-money').value || 0;
+  const yrs = +document.getElementById('comp-years').value || 3;
+
+  // 매매
+  const mmDownpay = mm * 0.3; // 매매가의 30% 자기자금 필요(LTV 70% 가정)
+  const mmLoan = mm - mmDownpay;
+  const mmRate = 0.04;
+  const mmMonthly = mmLoan * 10000 * (mmRate/12) * Math.pow(1+mmRate/12,360) / (Math.pow(1+mmRate/12,360) - 1);
+  const mmTotalCost = mmMonthly * 12 * yrs + mm * 0.025; // 취득세+중개수수료 약 2.5%
+  const mmAppreciate = mm * 1.03 * yrs; // 연 3% 상승 가정
+  const mmGain = mmAppreciate - mm - mmTotalCost / 10000;
+
+  // 전세
+  const jpExtra = jp - my; // 전세 자금 부족분
+  const jpLoan = Math.max(0, jpExtra); // 전세대출
+  const jpRate = 0.035; // 전세대출 금리
+  const jpInterest = jpLoan * 10000 * jpRate * yrs; // 이자만 납부
+  const jpSavings = (mm * 0.025 + (mmDownpay - my > 0 ? 0 : 0)) * 10000; // 취득세 절약
+  const jpRenew = jp * 0.05; // 전세 갱신 시 인상 가능 비용
+
+  const resEl = document.getElementById('compare-result');
+  resEl.innerHTML = `
+    <div class="compare-card maemae">
+      <h4>🏠 매매 (${fmt(mm)})</h4>
+      <div class="row"><span class="key">필요 자기자금</span><span class="val">${fmt(Math.round(mmDownpay))}원</span></div>
+      <div class="row"><span class="key">필요 대출</span><span class="val">${fmt(Math.round(mmLoan))}원</span></div>
+      <div class="row"><span class="key">월 대출 상환</span><span class="val">${Math.round(mmMonthly/10000).toLocaleString()}만원</span></div>
+      <div class="row"><span class="key">취득세+중개비</span><span class="val">${fmt(Math.round(mm*0.025))}원</span></div>
+      <div class="row"><span class="key">${yrs}년 후 예상 시세</span><span class="val">${fmt(Math.round(mm*Math.pow(1.03,yrs)))}원</span></div>
+    </div>
+    <div class="compare-card jeonse">
+      <h4>🔑 전세 (${fmt(jp)})</h4>
+      <div class="row"><span class="key">필요 자기자금</span><span class="val">${fmt(jp)} (보증금)</span></div>
+      <div class="row"><span class="key">전세대출 필요</span><span class="val">${jpLoan > 0 ? fmt(Math.round(jpLoan))+'원' : '불필요'}</span></div>
+      <div class="row"><span class="key">연 이자 부담</span><span class="val">${Math.round(jpInterest/yrs/10000).toLocaleString()}만원</span></div>
+      <div class="row"><span class="key">취득세 없음</span><span class="val">0원</span></div>
+      <div class="row"><span class="key">${yrs}년 간 절약 자금</span><span class="val">추가 저축 가능</span></div>
+    </div>
+  `;
+
+  const verdictEl = document.getElementById('compare-verdict');
+  const canAffordMM = my >= mmDownpay;
+  if (!canAffordMM) {
+    verdictEl.innerHTML = `
+      <div class="warn-box">
+        ⚠️ <strong>현재 자금으로 매매 다운페이 부족</strong><br>
+        매매 자기자금 ${fmt(Math.round(mmDownpay))}원 필요 → 현재 보유 ${fmt(my)}원 → <strong>${fmt(Math.round(mmDownpay - my))} 부족</strong><br>
+        <span style="margin-top:6px;display:block">→ 전세로 ${yrs}년 거주하며 추가 저축 후 매매 전환 전략이 현실적입니다.</span>
+      </div>`;
+  } else {
+    verdictEl.innerHTML = `
+      <div class="ok-box">
+        ✅ <strong>매매 자기자금 충분</strong><br>
+        투자 겸 실거주 목적이라면 <strong>매매 우선</strong> 검토를 권장합니다. 단, 대출 DSR 요건과 취득세 부담을 반드시 확인하세요.
+      </div>`;
+  }
+
+  // 전세 안전 체크
+  const safetyEl = document.getElementById('jeonse-safety');
+  const safetyItems = [
+    '등기부등본에 선순위 근저당이 없거나 낮은지 확인',
+    '전세가율 80% 이하인지 확인 (매매가 대비 전세가)',
+    'HUG(주택도시보증공사) 전세보증보험 가입 가능 여부 확인',
+    '집주인 세금 체납 여부 — 국세·지방세 완납증명 요청',
+    '임대인 신분증과 등기부 소유자 동일인 확인',
+    '특약에 "전입신고+확정일자 즉시 처리" 명시',
+    '임대인이 법인인 경우 전세보증보험 가입 제한 주의',
+  ];
+  safetyEl.innerHTML = safetyItems.map((item, i) => `
+    <li class="check-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div><div class="text">${item}</div></div>
+    </li>
+  `).join('');
+}
+
+// ============================================================
+// 탭 4: 지역 추천
+// ============================================================
+let currentAreaRegion = '관악구';
+
+const areaDB = {
+  '관악구': {
+    areas: [
+      { rank:1, name:'신림역 도보권 (신림·난곡)', line:'2호선 신림역 | 강남역까지 약 20분', budget:'전세 3~4억 / 매매 5~7.5억',
+        tags:[{text:'강남 직결 2호선',cls:'blue'},{text:'5억대 매매 가능',cls:'green'},{text:'신림선 환승',cls:'blue'}],
+        tip:'서울 2호선 역세권 중 예산 접근성이 가장 좋은 곳. 59㎡ 실거래 5.7억대 존재. 신림선 개통으로 여의도 방면 접근성 추가.' },
+      { rank:2, name:'서울대입구·낙성대', line:'2호선 서울대입구·낙성대역 | 강남역까지 약 18분', budget:'전세 3.5~4.5억 / 매매 6~9억',
+        tags:[{text:'강남 최단 접근',cls:'blue'},{text:'상권·인프라 풍부',cls:'green'}],
+        tip:'신림역보다 강남이 더 가깝고 상권이 잘 갖춰져 있음. 서울대 상권으로 생활 편의성 높음.' },
+      { rank:3, name:'봉천동 (남부순환 인근)', line:'2호선 봉천역·신림역 | 강남역까지 약 22분', budget:'전세 2.5~3.5억 / 매매 5~8억',
+        tags:[{text:'예산 유리',cls:'green'},{text:'재개발 기대',cls:'orange'}],
+        tip:'노후 단지 재개발 이슈로 장기 투자 관점에서 기회. 단, 실거주 편의성은 신림역보다 낮을 수 있음.' },
+    ],
+    tips: '1. 2호선 도보 거리 — 신림·봉천·서울대입구·낙성대역 기준 도보 10분 이내인지 확인\n2. 언덕 경사도 — 관악구는 언덕이 많아 직접 걸어볼 것\n3. 봉천·신림 재개발 구역 여부 — 서울 도시계획포털에서 정비구역 지정 확인\n4. 신림선 역세권 여부 — 여의도·샛강 방면 접근성 추가'
+  },
+  '동작구': {
+    areas: [
+      { rank:1, name:'사당·이수', line:'4호선·7호선 환승 | 강남역까지 약 25분', budget:'전세 3.5~5억 / 매매 7~11억',
+        tags:[{text:'더블 역세권',cls:'blue'},{text:'학군 양호',cls:'green'},{text:'생활 인프라 우수',cls:'blue'}],
+        tip:'4호선+7호선 더블 역세권으로 강남·서울 어디든 접근 편리. 관악구보다 생활 환경과 학군이 한 단계 업그레이드.' },
+      { rank:2, name:'흑석동', line:'9호선 흑석역 | 강남역까지 약 15분', budget:'전세 5~7억 / 매매 12~18억',
+        tags:[{text:'9호선 급행',cls:'blue'},{text:'한강뷰',cls:'green'},{text:'뉴타운',cls:'orange'}],
+        tip:'흑석뉴타운으로 신축 공급 지속. 9호선 급행으로 강남 15분. 한강뷰 단지 프리미엄 있음.' },
+      { rank:3, name:'상도동', line:'7호선 상도역 | 강남역까지 약 30분', budget:'전세 3~4.5억 / 매매 7~9.5억',
+        tags:[{text:'7호선',cls:'blue'},{text:'브랜드 단지',cls:'green'}],
+        tip:'동작구 내 상대적 합리적 가격대. 7호선으로 강남 접근 가능.' },
+    ],
+    tips: '1. 흑석뉴타운 재개발 진행 단계 확인\n2. 사당·이수 더블 역세권 도보 거리 실측\n3. 한강변 단지 홍수 위험 여부 확인'
+  },
+  '영등포구': {
+    areas: [
+      { rank:1, name:'당산동', line:'2·9호선 당산역 | 강남역까지 약 20분', budget:'전세 4~6억 / 매매 9~13억',
+        tags:[{text:'더블 역세권',cls:'blue'},{text:'한강 인접',cls:'green'},{text:'직주근접',cls:'blue'}],
+        tip:'2호선+9호선 더블 역세권. 여의도·강남 모두 20분 내 접근 가능. 한강 인접 생활권.' },
+      { rank:2, name:'여의도동', line:'5·9호선 여의도역 | 강남역까지 약 20분', budget:'전세 5~8억 / 매매 12~25억',
+        tags:[{text:'금융중심지',cls:'blue'},{text:'재건축 기대',cls:'orange'},{text:'한강뷰',cls:'green'}],
+        tip:'노후 단지 재건축 기대감으로 가격 프리미엄 형성. 여의도 직주근접 직장인에게 유리.' },
+    ],
+    tips: '1. 여의도 재건축 조합 설립 여부 확인\n2. 당산역 도보 거리 실측\n3. 한강변 홍수 위험 구역 여부 확인'
+  },
+  '강남구': {
+    areas: [
+      { rank:1, name:'개포동', line:'3호선 대청·개포동역 | 강남역까지 약 15분', budget:'전세 8~13억 / 매매 20~40억',
+        tags:[{text:'재건축 완료',cls:'green'},{text:'대단지',cls:'blue'},{text:'학군 최강',cls:'orange'}],
+        tip:'개포지구 재건축 신축 단지 다수. 강남 최고 학군. 높은 진입 장벽.' },
+      { rank:2, name:'역삼·논현동', line:'2호선 역삼·강남역 | 도보권', budget:'전세 6~10억 / 매매 15~30억',
+        tags:[{text:'강남 중심',cls:'blue'},{text:'직주근접',cls:'green'}],
+        tip:'강남 오피스 밀집 지역. 직주근접 최강. 아파트 공급 부족으로 가격 견고.' },
+    ],
+    tips: '1. 강남구 투기과열지구 대출 규제 반드시 확인\n2. 재건축 단지는 조합원 지위 양도 제한 확인\n3. 학군 배정 초등학교 사전 확인'
+  },
+  '서초구': {
+    areas: [
+      { rank:1, name:'반포동', line:'9호선 신반포역 | 강남역까지 약 10분', budget:'전세 10~18억 / 매매 25~60억',
+        tags:[{text:'한강뷰',cls:'blue'},{text:'최고급',cls:'orange'},{text:'재건축',cls:'green'}],
+        tip:'서울 최고가 단지 밀집. 아크로리버파크 등 프리미엄 단지. 한강변 최고급 주거지.' },
+      { rank:2, name:'방배동', line:'2호선 방배역 | 강남역까지 약 10분', budget:'전세 5~8억 / 매매 13~18억',
+        tags:[{text:'조용한 주거지',cls:'green'},{text:'2호선',cls:'blue'}],
+        tip:'반포보다 합리적인 서초구 주거지. 조용하고 생활 편의시설 풍부.' },
+    ],
+    tips: '1. 서초구도 투기과열지구 대출 규제 적용\n2. 반포 한강변 홍수 위험 구역 확인\n3. 방배동 단독·빌라 혼재 지역 아파트 비율 확인'
+  },
+  '송파구': {
+    areas: [
+      { rank:1, name:'잠실동', line:'2·8호선 잠실역 | 강남역까지 약 15분', budget:'전세 6~10억 / 매매 15~30억',
+        tags:[{text:'더블 역세권',cls:'blue'},{text:'롯데타워',cls:'green'},{text:'재건축',cls:'orange'}],
+        tip:'잠실 MICE 개발로 미래 가치 기대. 엘리트 학군. 잠실5단지 등 재건축 이슈.' },
+      { rank:2, name:'문정동·가락동', line:'8호선 문정역 | 강남역까지 약 20분', budget:'전세 4~6억 / 매매 9~14억',
+        tags:[{text:'법조타운',cls:'blue'},{text:'상대적 합리적',cls:'green'}],
+        tip:'법조타운·가든파이브 상권. 잠실보다 합리적인 가격대로 송파구 진입 가능.' },
+    ],
+    tips: '1. 잠실 MICE 개발 진행 상황 확인\n2. 잠실 재건축 단지 관리처분 단계 확인\n3. 석촌호수 침수 위험 구역 여부 확인'
+  },
+  '마포구': {
+    areas: [
+      { rank:1, name:'공덕동', line:'5·6호선·공항철도·경의선 공덕역 | 강남역까지 약 25분', budget:'전세 5~7억 / 매매 11~16억',
+        tags:[{text:'4개 노선',cls:'blue'},{text:'직주근접',cls:'green'},{text:'신축',cls:'orange'}],
+        tip:'공덕역 4개 노선으로 서울 어디든 접근 최강. 공항 직결로 해외 출장 잦은 직장인에게 유리.' },
+      { rank:2, name:'아현·마포동', line:'2·5호선 | 강남역까지 약 20분', budget:'전세 4~6억 / 매매 10~15억',
+        tags:[{text:'뉴타운',cls:'orange'},{text:'대단지',cls:'green'}],
+        tip:'마포래미안푸르지오 등 대단지 밀집. 상수역 카페거리·홍대 상권 인접.' },
+    ],
+    tips: '1. 마포구 재개발 구역 진행 단계 확인\n2. 공덕역 4개 노선 환승 동선 직접 확인\n3. 한강 조망 여부에 따른 가격차 큼'
+  },
+  '용산구': {
+    areas: [
+      { rank:1, name:'이촌동', line:'1호선·중앙선 이촌역 | 강남역까지 약 20분', budget:'전세 6~10억 / 매매 15~30억',
+        tags:[{text:'한강뷰',cls:'blue'},{text:'외국인 학교',cls:'green'},{text:'용산개발',cls:'orange'}],
+        tip:'한강 조망 최고 단지 밀집. 용산 국제업무지구 개발로 미래 가치 상승 기대.' },
+      { rank:2, name:'한남동', line:'6호선 한강진역 | 강남역까지 약 15분', budget:'전세 7~15억 / 매매 20~50억+',
+        tags:[{text:'초고급',cls:'orange'},{text:'한강뷰',cls:'blue'},{text:'재개발',cls:'green'}],
+        tip:'한남뉴타운 재개발로 대규모 신축 공급 예정. 서울 최고급 주거지 중 하나.' },
+    ],
+    tips: '1. 용산 국제업무지구 개발 진행 상황 확인\n2. 한남뉴타운 재개발 조합 설립 단계 확인\n3. 이촌동 한강변 홍수 위험 구역 확인'
+  },
+};
+
+function setAreaRegion(region) {
+  currentAreaRegion = region;
+  document.querySelectorAll('#area-region-btns .region-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === region);
+  });
+  renderAreas();
+}
+
+function renderAreas() {
+  const region = currentAreaRegion;
+  const data   = areaDB[region];
+
+  const titleEl    = document.getElementById('area-title');
+  const subtitleEl = document.getElementById('area-subtitle');
+  const tipsTitle  = document.getElementById('area-tips-title');
+  if (titleEl)    titleEl.textContent    = `${region} 지역 추천`;
+  if (subtitleEl) subtitleEl.textContent = `역세권·교통·예산 조건 기준`;
+  if (tipsTitle)  tipsTitle.textContent  = `${region} 체크포인트`;
+
+  const areas = data?.areas || [];
+  document.getElementById('area-list').innerHTML = areas.map(a => `
+    <li class="area-item">
+      <div class="rank">${a.rank}</div>
+      <div class="area-info">
+        <div class="name">${region} ${a.name}</div>
+        <div class="line">${a.line}</div>
+        <div class="line" style="color:var(--text-sub)"><strong>예산 범위:</strong> ${a.budget}</div>
+        <div class="tags">${a.tags.map(t => `<span class="tag ${t.cls}">${t.text}</span>`).join('')}</div>
+        <div class="tip" style="margin-top:8px">${a.tip}</div>
+      </div>
+    </li>
+  `).join('');
+
+  const tips = data?.tips || '';
+  document.getElementById('area-tips').innerHTML = `
+    <div class="tip">
+      <strong>${region} 매물 볼 때 반드시 확인할 것</strong><br><br>
+      ${tips.split('\n').map(t => t ? t + '<br>' : '<br>').join('')}
+      <br>실거래가: <a href="https://hogangnono.com/search?q=${encodeURIComponent(region)}" target="_blank">호갱노노 ${region} 검색 ↗</a>
+    </div>
+  `;
+}
+
+
+// ============================================================
+// 탭 5: 매물 체크리스트
+// ============================================================
+function renderChecklist() {
+  const items = [
+    { text: '역(지하철) 도보 실측 — 지도 앱 기준 10분 이내인지', badge: 'important' },
+    { text: '일조량·향(남향 or 동남향) 확인', badge: 'important' },
+    { text: '층수 — 로열층(3~4층 제외 중간층)인지', badge: 'normal' },
+    { text: '세대 수 — 300세대 이상 단지가 관리비·커뮤니티 유리', badge: 'normal' },
+    { text: '주차 대수 — 세대당 1대 이상 여부', badge: 'important' },
+    { text: '배관·누수 흔적 확인 (천장, 화장실 벽)', badge: 'important' },
+    { text: '엘리베이터 보수 이력 및 동 내 위치', badge: 'normal' },
+    { text: '관리비 고지서 확인 (최근 3개월)', badge: 'important' },
+    { text: '소음 — 도로·철도·학교 인접 여부', badge: 'important' },
+    { text: '층간소음 — 윗집 거주 상태 확인', badge: 'normal' },
+    { text: '베란다 확장 여부 (불법개조 확인)', badge: 'normal' },
+    { text: '단지 내 CCTV·보안 시스템 여부', badge: 'normal' },
+    { text: '주변 혐오시설(화장장·쓰레기처리장·고압선) 거리', badge: 'important' },
+    { text: '인근 초등학교 배정 여부 (학교알리미 확인)', badge: 'important' },
+    { text: '조망 — 향후 앞동 신축으로 막히는지 여부', badge: 'normal' },
+  ];
+
+  document.getElementById('checklist').innerHTML = items.map(item => `
+    <li class="check-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="text">${item.text} <span class="badge ${item.badge}">${item.badge === 'important' ? '필수' : '권장'}</span></div>
+      </div>
+    </li>
+  `).join('');
+
+  const docs = [
+    { text: '등기부등본 (인터넷등기소에서 직접 열람 — 대리인 발급 주의)', badge: 'important' },
+    { text: '건축물대장 확인 (위반건축물 여부)', badge: 'important' },
+    { text: '토지이용계획확인원 (용도지역 확인)', badge: 'normal' },
+    { text: '임대차계약서 특약 사항 꼼꼼히 작성', badge: 'important' },
+    { text: '계약 당일 현장에서 등기부등본 재발급 (근저당 설정 여부)', badge: 'important' },
+    { text: '전입신고 + 확정일자 당일 처리 (우선변제권 확보)', badge: 'important' },
+    { text: '전세보증보험(HUG·SGI) 가입 완료 여부', badge: 'important' },
+  ];
+
+  document.getElementById('docs-list').innerHTML = docs.map(item => `
+    <li class="check-item" onclick="toggleCheck(this)">
+      <div class="check-box"></div>
+      <div>
+        <div class="text">${item.text} <span class="badge ${item.badge}">${item.badge === 'important' ? '필수' : '권장'}</span></div>
+      </div>
+    </li>
+  `).join('');
+}
+
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+}
+
+// ============================================================
+// 탭 6: 정부 제도
+// ============================================================
+function renderGovPrograms() {
+  // 우선순위 배너 — 사용자 상황 기준 (월 1000만, 자산 2억, 강남통근, 전세고려)
+  const priorities = [
+    {
+      rank: 1,
+      color: '#c53030', bg: '#fff5f5', border: '#feb2b2',
+      title: '신혼부부 버팀목 전세대출',
+      reason: '전세로 시작 시 연 1.0~3.3% 저금리 — 즉시 신청 가능. 결혼 직후 첫 번째로 챙겨야 할 제도',
+    },
+    {
+      rank: 2,
+      color: '#2b6cb0', bg: '#ebf8ff', border: '#90cdf4',
+      title: '신혼부부 특별공급 청약 등록',
+      reason: '지금 청약통장 납입 기간을 쌓아두면 당첨 확률↑. 당첨만 되면 시세 60~80% 분양 — 즉시 자산 효과',
+    },
+    {
+      rank: 3,
+      color: '#276749', bg: '#f0fff4', border: '#9ae6b4',
+      title: '신생아 특례 대출 (출산 후)',
+      reason: '아이 낳은 뒤 2년 내 신청 시 1%대 금리 + 소득 2억까지 허용. 결혼 계획에 출산이 포함된다면 최우선 예약',
+    },
+    {
+      rank: 4,
+      color: '#553c9a', bg: '#faf5ff', border: '#d6bcfa',
+      title: '디딤돌 대출 (매매 전환 시)',
+      reason: '전세 생활 후 매수로 넘어갈 때 활용. 합산 연소득 7,000만원 이하라면 시중 금리보다 유리',
+    },
+  ];
+
+  // 생애최초 적합도 — 월 800~1200만원 합산 기준
+  // 도시근로자 월평균 3인 이하 기준 약 693만원 (2024)
+  // 160% = 약 1,109만원 / 130% = 약 901만원
+  const fitEl = document.getElementById('first-buyer-fit');
+  if (fitEl) {
+    fitEl.innerHTML = `
+      <div style="background:#fffaf0;border:1.5px solid #fbd38d;border-radius:10px;padding:14px 16px;font-size:0.83rem;color:#744210">
+        <div style="font-weight:700;margin-bottom:8px">⚠️ 내 소득 기준 적합도 체크 (합산 월 800~1200만원)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>생애최초 디딤돌 대출 (연 8,500만 신혼+생애최초)</span>
+            <span style="font-weight:700;color:${1200*12 <= 8500 ? '#276749' : '#c53030'}">${1200*12 <= 8500 ? '✅ 적합' : '⚠️ 소득 초과 가능'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>생애최초 특공 민영 (월평균 160% ≈ 월 1,109만)</span>
+            <span style="font-weight:700;color:#d69e2e">⚠️ 소득 상단 경계</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>생애최초 특공 공공 (월평균 130% ≈ 월 901만)</span>
+            <span style="font-weight:700;color:#c53030">❌ 소득 초과 가능성 높음</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid #fbd38d;font-size:0.78rem">
+          → 소득이 높을수록 <strong>민영 생애최초 특공 추첨</strong>이 현실적인 루트입니다. 공공분양보다 추첨 비율이 높아 고소득자도 당첨 기회가 있습니다.
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('priority-list').innerHTML = priorities.map(p => `
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:${p.bg};border:1.5px solid ${p.border};border-radius:10px">
+      <div style="min-width:26px;height:26px;border-radius:50%;background:${p.color};color:white;font-size:0.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${p.rank}</div>
+      <div>
+        <div style="font-weight:700;font-size:0.88rem;color:${p.color}">${p.title}</div>
+        <div style="font-size:0.78rem;color:#4a5568;margin-top:2px">${p.reason}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // 비교표
+  const rows = [
+    { name: '신혼 버팀목 전세대출', type: '전세', benefit: '1.0~3.3%', limit: '수도권 3억', income: '합산 7,500만', fit: 'high', fitTxt: '적합 ✅' },
+    { name: '디딤돌 대출 (신혼)', type: '매매', benefit: '2.85~4.15%', limit: '4억', income: '합산 7,000만', fit: 'low', fitTxt: '소득초과 ❌' },
+    { name: '보금자리론', type: '매매', benefit: '3.05~4.25%', limit: '3.6억', income: '합산 8,500만 (신혼)', fit: 'low', fitTxt: '소득초과 ❌' },
+    { name: '신생아 특례 전세', type: '전세', benefit: '최저 1.3%', limit: '2.4억', income: '맞벌이 2억', fit: 'high', fitTxt: '출산 후 적합 ✅' },
+    { name: '신생아 특례 구입', type: '매매', benefit: '1.80~4.50%', limit: '4억', income: '맞벌이 2억', fit: 'high', fitTxt: '출산 후 적합 ✅' },
+    { name: '일반 주담대 (시중은행)', type: '매매', benefit: '4.32~7.01%', limit: 'DSR 40%', income: '제한없음', fit: 'mid', fitTxt: '대안 ⚠️' },
+    { name: '신혼부부 특별공급', type: '청약', benefit: '시세 60~80%', limit: '분양가', income: '월 1,054만(맞벌이 160%)', fit: 'high', fitTxt: '적합 ✅' },
+    { name: '생애최초 특공 (민영)', type: '청약', benefit: '시세 60~80%', limit: '분양가', income: '월 1,109만(160%)', fit: 'mid', fitTxt: '경계선 ⚠️' },
+    { name: '신혼희망타운 (LH)', type: '공공분양', benefit: '시세 70~80%', limit: '분양가', income: '맞벌이 200% OK', fit: 'high', fitTxt: '적합 ✅' },
+  ];
+
+  const colorMap = { high: '#276749', mid: '#7b341e', low: '#718096' };
+  const bgMap = { high: '#f0fff4', mid: '#fffaf0', low: '#f7fafc' };
+
+  document.getElementById('compare-table').innerHTML = rows.map(r => `
+    <tr style="border-bottom:1px solid #e2e8f0">
+      <td style="padding:10px 8px;font-weight:600;color:#2d3748">${r.name}</td>
+      <td style="padding:10px 8px;text-align:center"><span class="tag">${r.type}</span></td>
+      <td style="padding:10px 8px;text-align:center;font-weight:700;color:#3182ce">${r.benefit}</td>
+      <td style="padding:10px 8px;text-align:center">${r.limit}</td>
+      <td style="padding:10px 8px;text-align:center;font-size:0.78rem">${r.income}</td>
+      <td style="padding:10px 8px;text-align:center;background:${bgMap[r.fit]};font-weight:700;color:${colorMap[r.fit]};font-size:0.8rem">${r.fitTxt}</td>
+    </tr>
+  `).join('');
+}
+
+// ============================================================
+// 탭 8: 매물 탐색
+// ============================================================
+let listingType = 'maemae';
+let listingRegion = '관악구';
+
+function setRegion(region) {
+  if (!region?.trim()) return;
+  listingRegion = region.trim();
+  // 버튼 활성화
+  document.querySelectorAll('.region-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === listingRegion);
+  });
+  // 헤더 표시 업데이트
+  const disp = document.getElementById('ls-region-display');
+  if (disp) disp.textContent = listingRegion;
+  // 플랫폼 링크 재렌더
+  renderPlatformLinks();
+  renderComplexList();
+}
+
+function syncListingBudget() {
+  const cash    = +document.getElementById('cash').value || 0;
+  const inv     = +document.getElementById('invest').value || 0;
+  const loan    = +document.getElementById('loan').value || 0;
+  const reserve = +document.getElementById('reserve').value || 0;
+  const total   = cash + inv + loan - reserve;
+
+  document.getElementById('ls-budget').textContent    = fmt(total) + '원';
+  document.getElementById('ls-maemae').textContent    = fmt(Math.round(total * 0.95)) + '원 이하';
+  document.getElementById('ls-jeonse').textContent    = fmt(Math.round((cash + inv - reserve) * 1.0)) + '원 이하';
+  renderPlatformLinks();
+  renderComplexList();
+}
+
+function setListingType(type) {
+  listingType = type;
+  document.getElementById('btn-maemae').style.background = type === 'maemae' ? '#3182ce' : 'white';
+  document.getElementById('btn-maemae').style.color      = type === 'maemae' ? 'white' : '#4a5568';
+  document.getElementById('btn-maemae').style.borderColor= type === 'maemae' ? '#3182ce' : '#e2e8f0';
+  document.getElementById('btn-jeonse').style.background = type === 'jeonse' ? '#276749' : 'white';
+  document.getElementById('btn-jeonse').style.color      = type === 'jeonse' ? 'white' : '#4a5568';
+  document.getElementById('btn-jeonse').style.borderColor= type === 'jeonse' ? '#276749' : '#e2e8f0';
+
+  const descEl = document.getElementById('listing-type-desc');
+  if (type === 'maemae') {
+    descEl.innerHTML = '🏠 <strong>매매</strong> — 자산+대출로 실구매 가능한 매물 탐색. 생애최초 LTV 70% 기준 실거래가 5~7억대 관악구 아파트를 우선 확인하세요.';
+  } else {
+    descEl.innerHTML = '🔑 <strong>전세</strong> — 자산 내에서 전세금 충당 가능한 매물 탐색. 신혼 버팀목 전세대출(수도권 3억 한도) 활용 시 관악구 3~4억대 전세 입주 가능합니다.';
+  }
+  renderPlatformLinks();
+  renderComplexList();
+}
+
+function renderPlatformLinks() {
+  const cash    = +document.getElementById('cash').value || 20000;
+  const inv     = +document.getElementById('invest').value || 0;
+  const loan    = +document.getElementById('loan').value || 15000;
+  const reserve = +document.getElementById('reserve').value || 3000;
+  const total   = cash + inv + loan - reserve;
+
+  // 가격 범위 만원 → 억 변환
+  const maxM = Math.round(total * 0.95);
+  const minM = Math.round(maxM * 0.6);
+  const maxJ = Math.round((cash + inv - reserve));
+  const minJ = Math.round(maxJ * 0.6);
+
+  const isM = listingType === 'maemae';
+
+  const region    = listingRegion || '관악구';
+  const regionEnc = encodeURIComponent(region);
+
+  // 네이버 부동산 지역별 좌표 (ms 파라미터)
+  const naverMS = {
+    '관악구':  '2ADmFG,3zn0zk,16',
+    '동작구':  '2ADpEy,3znWfy,16',
+    '영등포구':'2ADoGk,3zoMQe,16',
+    '강남구':  '2ADrxC,3znhGS,16',
+    '서초구':  '2ADqqO,3znHpk,16',
+    '송파구':  '2ADtpU,3znAHC,16',
+    '마포구':  '2ADmzW,3zoqsO,16',
+    '용산구':  '2ADoxS,3zoheC,16',
+  };
+  const dealCode = isM ? 'A1' : 'B1';
+  const ms = naverMS[region];
+  const naverUrl = ms
+    ? `https://new.land.naver.com/search?ms=${ms}&a=APT:ABYG:JGC&e=${dealCode}`
+    : `https://new.land.naver.com/search?query=${regionEnc}&a=APT&e=${dealCode}`;
+
+  const platforms = [
+    {
+      name: '네이버 부동산',
+      color: '#03c75a',
+      desc: '매물 수 가장 많음 · 지도 기반 탐색',
+      url: naverUrl,
+      tip: `${region} · ${isM?'매매':'전세'} · 아파트`
+    },
+    {
+      name: '호갱노노',
+      color: '#e53e3e',
+      desc: '실거래가 분석 최강 · 가격 히스토리',
+      url: `https://hogangnono.com/search?q=${regionEnc}`,
+      tip: '실거래가 추이 · 전고점 대비 현재 위치 확인'
+    },
+    {
+      name: '직방',
+      color: '#3182ce',
+      desc: '신축·준신축 매물 강세 · 사진 품질 좋음',
+      url: isM
+        ? `https://www.zigbang.com/home/apt/map?address=${regionEnc}&deal_type=buy`
+        : `https://www.zigbang.com/home/apt/map?address=${regionEnc}&deal_type=rent`,
+      tip: '단지 사진·커뮤니티 정보 확인하기 좋음'
+    },
+    {
+      name: '아실',
+      color: '#553c9a',
+      desc: '향후 공급 물량 · 입주 예정 확인',
+      url: `https://asil.kr/asil/index.jsp`,
+      tip: `${region} 인근 입주 예정 물량 확인`
+    },
+    {
+      name: '국토부 실거래가',
+      color: '#2d3748',
+      desc: '정부 공식 데이터 · 허위 없는 실가격',
+      url: `https://rt.molit.go.kr/`,
+      tip: `${region} 선택 → 아파트 → 최근 3개월 실거래 확인`
+    },
+    {
+      name: 'KB부동산',
+      color: '#d69e2e',
+      desc: 'KB시세 · 대출 감정가 참고용',
+      url: `https://kbland.kr/map?searchText=${regionEnc}`,
+      tip: '대출 가능 금액 산정 시 기준이 되는 KB시세 확인'
+    },
+  ];
+
+  document.getElementById('platform-links').innerHTML = platforms.map(p => `
+    <a href="${p.url}" target="_blank" rel="noopener"
+       style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);text-decoration:none;transition:border-color 0.2s"
+       onmouseover="this.style.borderColor='${p.color}'"
+       onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:0.9rem;font-weight:700;color:${p.color}">${p.name}</span>
+        <span style="font-size:0.72rem;color:var(--text-muted)">↗</span>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-muted)">${p.desc}</div>
+      <div style="font-size:0.72rem;padding:5px 8px;background:var(--surface);border-radius:5px;border:1px solid var(--border);color:var(--text-sub)">${p.tip}</div>
+    </a>
+  `).join('');
+}
+
+function renderComplexList() {
+  const cash    = +document.getElementById('cash').value || 20000;
+  const inv     = +document.getElementById('invest').value || 0;
+  const loan    = +document.getElementById('loan').value || 15000;
+  const reserve = +document.getElementById('reserve').value || 3000;
+  const total   = cash + inv + loan - reserve;
+
+  const isM = listingType === 'maemae';
+
+  // 지역 타이틀 업데이트
+  const titleEl = document.getElementById('complex-title');
+  if (titleEl) titleEl.textContent = `${listingRegion} 주요 단지`;
+
+  // 지역별 단지 데이터
+  const complexDB = {
+    '관악구': [
+    {
+      name: '관악산 휴먼시아 2단지',
+      dong: '신림동',
+      line: '2호선 신림역 도보 10분',
+      maemae: { min: 5.7, max: 7.3, size: '59~84㎡' },
+      jeonse: { min: 3.2, max: 4.5, size: '59~84㎡' },
+      url: 'https://hogangnono.com/apt/1zsff',
+      tags: ['공공분양 출신', '역세권 근접'],
+      note: '실거래 5.7억(59㎡) 확인된 단지'
+    },
+    {
+      name: '봉천동 관악푸르지오',
+      dong: '봉천동',
+      line: '2호선 봉천역 도보 5분',
+      maemae: { min: 7.0, max: 9.5, size: '59~84㎡' },
+      jeonse: { min: 4.0, max: 5.5, size: '59~84㎡' },
+      url: 'https://hogangnono.com/apt/1vIcb',
+      tags: ['브랜드 단지', '역 초근접'],
+      note: '봉천역 역세권 대표 단지'
+    },
+    {
+      name: '봉천동 관악현대',
+      dong: '봉천동',
+      line: '2호선 봉천역 도보 8분',
+      maemae: { min: 8.0, max: 11.5, size: '다양' },
+      jeonse: { min: 4.5, max: 6.0, size: '다양' },
+      url: 'https://hogangnono.com/apt/1xc32',
+      tags: ['주간 매매가 1위', '대단지'],
+      note: '주간 최고가 11.5억 기록 — 고가 단지'
+    },
+    {
+      name: '봉천동 관악드림타운',
+      dong: '봉천동',
+      line: '2호선 봉천역 도보 12분',
+      maemae: { min: 5.5, max: 8.0, size: '59~84㎡' },
+      jeonse: { min: 3.0, max: 4.5, size: '59~84㎡' },
+      url: 'https://hogangnono.com/apt/1vC9b',
+      tags: ['가성비 단지'],
+      note: '봉천동 내 상대적 합리적 가격대'
+    },
+    {
+      name: '신림동 관악산휴먼시아1단지',
+      dong: '신림동',
+      line: '2호선 신림역 도보 15분',
+      maemae: { min: 4.8, max: 6.5, size: '49~84㎡' },
+      jeonse: { min: 2.8, max: 4.0, size: '49~84㎡' },
+      url: 'https://hogangnono.com/search?q=%EC%8B%A0%EB%A6%BC%EB%8F%99+%EA%B4%80%EC%95%85%EC%82%B0%ED%9C%B4%EB%A8%BC%EC%8B%9C%EC%95%841',
+      tags: ['소형 평수 多', '예산 접근성'],
+      note: '소형 위주 — 예산이 빠듯할 때 우선 검토'
+    },
+    {
+      name: '신림동 난곡e편한세상',
+      dong: '난곡',
+      line: '신림선 난곡역 도보 5분',
+      maemae: { min: 5.0, max: 7.0, size: '59~84㎡' },
+      jeonse: { min: 3.0, max: 4.2, size: '59~84㎡' },
+      url: 'https://hogangnono.com/search?q=%EB%82%9C%EA%B3%A1+%EC%97%90%ED%8E%B8%ED%95%9C%EC%84%B8%EC%83%81',
+      tags: ['신림선 역세권', '신축급'],
+      note: '신림선 개통 수혜 단지 — 여의도 방면 접근성'
+    },
+  ],
+  '동작구': [
+    { name: '흑석동 아크로리버하임', dong:'흑석동', line:'9호선 흑석역 도보 5분',
+      maemae:{min:13,max:19,size:'59~84㎡'}, jeonse:{min:6,max:8.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=흑석+아크로리버하임', tags:['한강뷰','9호선'], note:'흑석뉴타운 대표 브랜드 단지' },
+    { name: '사당동 이수푸르지오', dong:'사당동', line:'4·7호선 이수역 도보 7분',
+      maemae:{min:8,max:11,size:'59~84㎡'}, jeonse:{min:4.5,max:6,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=사당+이수푸르지오', tags:['더블역세권','학군'], note:'4·7호선 더블 역세권 대표 단지' },
+    { name: '상도동 래미안상도 3차', dong:'상도동', line:'7호선 상도역 도보 8분',
+      maemae:{min:7,max:9.5,size:'59~84㎡'}, jeonse:{min:4,max:5.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=래미안상도', tags:['브랜드','역세권'], note:'동작구 중가 대표 단지' },
+  ],
+  '영등포구': [
+    { name: '여의도 삼부아파트', dong:'여의도동', line:'5·9호선 여의도역 도보 10분',
+      maemae:{min:12,max:18,size:'59~84㎡'}, jeonse:{min:5,max:7.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=여의도+삼부', tags:['여의도','재건축'], note:'여의도 재건축 기대 단지' },
+    { name: '당산동 당산SK뷰', dong:'당산동', line:'2·9호선 당산역 도보 5분',
+      maemae:{min:9,max:13,size:'59~84㎡'}, jeonse:{min:4.5,max:6.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=당산+SK뷰', tags:['더블역세권','신축'], note:'당산역 더블 역세권 준신축' },
+  ],
+  '강남구': [
+    { name: '개포 래미안블레스티지', dong:'개포동', line:'3호선 대청역 도보 10분',
+      maemae:{min:25,max:40,size:'59~84㎡'}, jeonse:{min:10,max:15,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=개포+래미안블레스티지', tags:['재건축','대단지'], note:'개포지구 대표 신축' },
+    { name: '도곡 타워팰리스', dong:'도곡동', line:'3호선 도곡역 도보 5분',
+      maemae:{min:20,max:35,size:'84~135㎡'}, jeonse:{min:8,max:12,size:'84~135㎡'},
+      url:'https://hogangnono.com/search?q=타워팰리스', tags:['랜드마크','초고층'], note:'강남 대표 랜드마크 단지' },
+  ],
+  '서초구': [
+    { name: '반포 아크로리버파크', dong:'반포동', line:'9호선 신반포역 도보 5분',
+      maemae:{min:30,max:60,size:'59~84㎡'}, jeonse:{min:12,max:18,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=반포+아크로리버파크', tags:['한강뷰','최고급'], note:'서울 최고가 단지 중 하나' },
+    { name: '방배 롯데캐슬아르떼', dong:'방배동', line:'2호선 방배역 도보 8분',
+      maemae:{min:13,max:18,size:'59~84㎡'}, jeonse:{min:5.5,max:8,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=방배+롯데캐슬', tags:['브랜드','역세권'], note:'방배동 준신축 브랜드 단지' },
+  ],
+  '마포구': [
+    { name: '아현동 마포래미안푸르지오', dong:'아현동', line:'2·5호선 애오개역 도보 5분',
+      maemae:{min:11,max:15,size:'59~84㎡'}, jeonse:{min:5,max:7.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=마포래미안푸르지오', tags:['대단지','역세권'], note:'마포구 대표 대단지' },
+    { name: '공덕동 공덕SK리더스뷰', dong:'공덕동', line:'5·6호선·공항철도 공덕역 도보 5분',
+      maemae:{min:12,max:16,size:'59~84㎡'}, jeonse:{min:5.5,max:7.5,size:'59~84㎡'},
+      url:'https://hogangnono.com/search?q=공덕+SK리더스뷰', tags:['4개 노선','직주근접'], note:'공덕역 4개 노선 초역세권' },
+  ],
+  };
+
+  // 선택된 지역 단지 — 없으면 호갱노노 검색 링크로 안내
+  const complexes = complexDB[listingRegion] || [];
+
+  const complexEl = document.getElementById('complex-list');
+  if (complexes.length === 0) {
+    complexEl.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--text-muted)">
+        ${listingRegion} 단지 데이터는 아직 준비 중이에요.<br>
+        <a href="https://hogangnono.com/search?q=${encodeURIComponent(listingRegion)}"
+           target="_blank" style="color:var(--primary);font-weight:600;margin-top:8px;display:inline-block">
+          호갱노노에서 ${listingRegion} 검색하기 ↗
+        </a>
+      </div>`;
+    return;
+  }
+
+  const maxBudget = isM ? total * 0.95 / 10000 : (cash + inv - reserve) / 10000;
+
+  document.getElementById('complex-list').innerHTML = complexes.map(c => {
+    const price = isM ? c.maemae : c.jeonse;
+    const inBudget = price.min <= maxBudget;
+    const borderColor = inBudget ? '#9ae6b4' : '#e2e8f0';
+    const bg = inBudget ? '#f0fff4' : '#f7fafc';
+    const budgeBadge = inBudget
+      ? `<span style="font-size:0.68rem;padding:2px 7px;border-radius:10px;background:#c6f6d5;color:#276749;font-weight:700">예산 내 ✅</span>`
+      : `<span style="font-size:0.68rem;padding:2px 7px;border-radius:10px;background:#e2e8f0;color:#718096;font-weight:700">예산 초과</span>`;
+
+    return `
+      <div style="border:1.5px solid ${borderColor};background:${bg};border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-size:0.95rem;font-weight:700;color:#2d3748">${c.name}</span>
+              ${budgeBadge}
+            </div>
+            <div style="font-size:0.78rem;color:#718096;margin-bottom:6px">${c.dong} · ${c.line}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">
+              ${c.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+            </div>
+            <div style="font-size:0.78rem;color:#4a5568;background:white;padding:5px 8px;border-radius:6px;border:1px solid #e2e8f0">
+              💡 ${c.note}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:0.72rem;color:#a0aec0;margin-bottom:2px">${isM ? '매매' : '전세'} (${price.size})</div>
+            <div style="font-size:1.1rem;font-weight:800;color:${inBudget ? '#276749' : '#e53e3e'}">${price.min}~${price.max}억</div>
+            <a href="${c.url}" target="_blank" rel="noopener"
+               style="display:inline-block;margin-top:8px;padding:6px 14px;background:#3182ce;color:white;border-radius:6px;font-size:0.75rem;font-weight:700;text-decoration:none">
+              호갱노노 보기 ↗
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 플랫폼 가이드
+  const guides = [
+    {
+      platform: '🟢 네이버 부동산',
+      steps: [
+        `지도에서 관악구 신림역·봉천역 주변으로 이동`,
+        `좌측 상단 필터: 아파트 선택 / ${isM ? '매매' : '전세'} 선택`,
+        `가격 필터: ${isM ? '4억~8억' : '2억~4억'} 설정`,
+        `면적 필터: 전용 49㎡ ~ 85㎡ (15~25평)`,
+        `매물 클릭 후 "실거래가" 탭에서 최근 거래 확인`
+      ]
+    },
+    {
+      platform: '🔴 호갱노노',
+      steps: [
+        `검색창에 "관악구" 또는 단지명 직접 입력`,
+        `단지 클릭 → "실거래" 탭에서 최근 6개월 거래 확인`,
+        `"시세" 탭에서 전고점 대비 현재 위치 파악`,
+        `"매물" 탭에서 현재 나온 매물 가격·층수 비교`,
+        `"주변 단지" 탭으로 인근 가격대 한눈에 비교`
+      ]
+    },
+    {
+      platform: '🏛️ 국토부 실거래가',
+      steps: [
+        `rt.molit.go.kr 접속 → 아파트 매매/전세 선택`,
+        `시도: 서울 / 시군구: 관악구 선택`,
+        `원하는 단지명 검색`,
+        `최근 3~6개월 실거래 데이터 확인`,
+        `허위 매물 없는 공식 정부 데이터 — 최종 가격 검증용`
+      ]
+    },
+    {
+      platform: '📊 아실',
+      steps: [
+        `asil.kr 접속 → 지역 선택: 관악구`,
+        `"입주물량" 탭에서 향후 2년 공급 예정 확인`,
+        `공급 많으면 전세가 하락 가능 → 매수 타이밍 재검토`,
+        `"미분양" 현황도 함께 확인`
+      ]
+    },
+  ];
+
+  document.getElementById('platform-guide').innerHTML = guides.map(g => `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+      <div style="background:#edf2f7;padding:10px 14px;font-weight:700;font-size:0.88rem;color:#2d3748">${g.platform}</div>
+      <div style="padding:12px 14px">
+        <ol style="padding-left:16px;display:flex;flex-direction:column;gap:6px">
+          ${g.steps.map(s => `<li style="font-size:0.8rem;color:#4a5568;line-height:1.5">${s}</li>`).join('')}
+        </ol>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderListingTab() {
+  setListingType('maemae');
+  syncListingBudget();
+}
+
+// ============================================================
+// 탭 7: 시장 전망 클리핑
+// ============================================================
+function renderClipping() {
+  // 현재 날짜 동적 표시
+  const now = new Date();
+  const nowStr = `${now.getFullYear()}년 ${now.getMonth()+1}월`;
+
+  // 찬반 분석 렌더링
+  const titleEl = document.getElementById('market-title');
+  const dateEl  = document.getElementById('market-date');
+  const pcEl    = document.getElementById('market-pros-cons');
+  const verdictEl = document.getElementById('market-verdict');
+  const tvEl    = document.getElementById('timeline-title');
+  const vvEl    = document.getElementById('variables-title');
+
+  if (titleEl) titleEl.textContent = `지금 살 때인가 — ${nowStr}`;
+  if (dateEl)  dateEl.textContent  = `${nowStr} 기준`;
+  if (tvEl)    tvEl.textContent    = `부동산 정책 타임라인 (${now.getFullYear()})`;
+  if (vvEl)    vvEl.textContent    = `${now.getFullYear()}년 집값 4대 변수`;
+
+  if (pcEl) pcEl.innerHTML = `
+    <div style="background:#f0fff4;border:2px solid #9ae6b4;border-radius:10px;padding:16px">
+      <div style="font-weight:800;color:#276749;font-size:0.95rem;margin-bottom:12px">지금 사야 한다</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:9px">
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #68d391"><strong>공급 절벽 지속</strong> — 신축 착공 감소로 2027~28년까지 서울 입주 물량 부족. 기다릴수록 더 비싼 집만 남을 수 있음</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #68d391"><strong>기준금리 1% 인하</strong> — ${nowStr} 기준 한국은행 기준금리 1%. 실질 대출금리 하락 → 매수 심리 회복 중</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #68d391"><strong>전세가 동반 상승</strong> — 전세가 연 5% 상승 중. 전세 거주 비용도 매년 올라 매수 전환 타이밍이 좁아짐</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #68d391"><strong>주산연 전망</strong> — ${now.getFullYear()}년 서울 아파트값 <strong>4.2% 상승</strong> 전망 (주택산업연구원)</li>
+      </ul>
+    </div>
+    <div style="background:#fff5f5;border:2px solid #feb2b2;border-radius:10px;padding:16px">
+      <div style="font-weight:800;color:#c53030;font-size:0.95rem;margin-bottom:12px">기다려야 한다</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:9px">
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #fc8181"><strong>매물 33% 급증</strong> — 서울 아파트 매물 1년 새 33% 증가. 팔리지 않는 매물이 쌓이는 중</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #fc8181"><strong>대출 규제 유지</strong> — LTV 70% + DSR 40% + 스트레스DSR 3단계. 실수요자 자금 조달 여전히 어려움</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #fc8181"><strong>상승 기대 꺾임</strong> — "집값 오른다" 전문가 비율 81% → 56% 급락 (헤럴드경제)</li>
+        <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #fc8181"><strong>안정 시점 2027~28년</strong> — 전문가 70%가 집값 안정 시점을 내년 또는 2028년으로 전망</li>
+      </ul>
+    </div>
+  `;
+
+  if (verdictEl) verdictEl.innerHTML = `
+    <strong style="color:var(--text)">종합 판단 (${nowStr})</strong><br><br>
+    기준금리 1% 인하로 대출 부담이 줄었지만 매물은 늘고 있어 방향이 엇갈리는 구간입니다.
+    <strong>실거주 목적</strong>이라면 지금도 나쁜 타이밍이 아닙니다.
+    단, <strong>감당 가능한 수준의 대출</strong>이 핵심이며, 관악구처럼 상대적 저가 지역은 <strong>급락 리스크가 낮은 편</strong>입니다.
+  `;
+
+  // 정책 타임라인
+  const events = [
+    { date: '2025.06.27', label: '긴급', color: '#c53030', bg: '#fff5f5',
+      title: '긴급 가계부채 대책 발표',
+      desc: '수도권 생애최초 LTV 80%→70% / 주담대 최대한도 6억 / 전입의무 6개월 / 스트레스금리 수도권 3%로 상향' },
+    { date: '2025.07.01', label: '시행', color: '#d69e2e', bg: '#fffaf0',
+      title: '스트레스 DSR 3단계 전면 시행',
+      desc: '주담대+신용대출+기타대출 모두 스트레스 금리 100% 적용. 연소득 1억 기준 대출 한도 2,000만원 추가 감소' },
+    { date: '2026.01', label: '시행', color: '#d69e2e', bg: '#fffaf0',
+      title: '은행권 주담대 위험가중치 상향',
+      desc: '15%→20%로 상향. 은행의 자본 부담 증가 → 대출 금리 소폭 상승 및 심사 강화 효과' },
+    { date: '2026.04.17', label: '신규', color: '#2b6cb0', bg: '#ebf8ff',
+      title: '다주택자 수도권 담보대출 만기연장 금지',
+      desc: '다주택자·임대사업자 수도권·규제지역 아파트 담보대출 만기연장 원칙 금지. 매도 압박으로 급매물 출현 가능성' },
+    { date: '2026.04', label: '시행', color: '#d69e2e', bg: '#fffaf0',
+      title: '주택신용보증기금 출연요율 차등 적용',
+      desc: '대출금액이 클수록 보증료 높아지는 구조. 고액 대출의 실질 비용 상승' },
+    { date: '2026 하반기', label: '예정', color: '#718096', bg: '#f7fafc',
+      title: '세제 개편 논의 진행 중',
+      desc: '장기보유특별공제 개편, 양도세 중과 유예 연장 여부 미정. 결과에 따라 매물 출현량 크게 달라질 수 있음' },
+  ];
+
+  document.getElementById('timeline').innerHTML = events.map((e, i) => `
+    <div style="display:flex;gap:14px;padding-bottom:${i < events.length-1 ? '16px' : '0'};position:relative">
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+        <div style="width:10px;height:10px;border-radius:50%;background:${e.color};margin-top:4px;flex-shrink:0"></div>
+        ${i < events.length-1 ? `<div style="width:2px;flex:1;background:#e2e8f0;margin-top:4px"></div>` : ''}
+      </div>
+      <div style="background:${e.bg};border-radius:8px;padding:12px 14px;flex:1;border:1px solid #e2e8f0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span style="font-size:0.72rem;font-weight:700;color:white;background:${e.color};padding:2px 7px;border-radius:4px">${e.label}</span>
+          <span style="font-size:0.78rem;color:#718096">${e.date}</span>
+        </div>
+        <div style="font-size:0.88rem;font-weight:700;color:#2d3748;margin-bottom:4px">${e.title}</div>
+        <div style="font-size:0.78rem;color:#4a5568;line-height:1.6">${e.desc}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // 4대 변수
+  const vars = [
+    { icon: '🏗️', title: '공급 물량', color: '#e53e3e', bg: '#fff5f5', border: '#feb2b2',
+      bull: '신축 공급 부족 → 희소성 프리미엄 지속',
+      bear: '재건축·재개발 규제 완화 시 공급 일시 증가' },
+    { icon: '💰', title: '금리 방향', color: '#d69e2e', bg: '#fffaf0', border: '#fbd38d',
+      bull: '한은 금리 인하 시 대출 부담 완화 → 매수 심리↑',
+      bear: '미국 고금리 장기화 시 인하 지연 → 수요 억제' },
+    { icon: '📜', title: '세제 정책', color: '#2b6cb0', bg: '#ebf8ff', border: '#90cdf4',
+      bull: '다주택자 매도 압박 → 매물 증가 → 가격 하방 압력',
+      bear: '양도세 유예 연장 시 매물 잠김 → 가격 지지' },
+    { icon: '🗳️', title: '정치 리스크', color: '#553c9a', bg: '#faf5ff', border: '#d6bcfa',
+      bull: '정부 규제 의지 강해 추가 대책 가능 → 단기 하락 압력',
+      bear: '정책 효과 미미 시 시장 반등, 규제 피로도↑' },
+  ];
+
+  document.getElementById('variables').innerHTML = vars.map(v => `
+    <div style="background:${v.bg};border:1.5px solid ${v.border};border-radius:10px;padding:14px">
+      <div style="font-size:1.1rem;margin-bottom:6px">${v.icon} <strong style="color:${v.color}">${v.title}</strong></div>
+      <div style="font-size:0.78rem;color:#276749;padding:6px 8px;background:rgba(72,187,120,0.1);border-radius:6px;margin-bottom:6px">
+        📈 상승 시나리오: ${v.bull}
+      </div>
+      <div style="font-size:0.78rem;color:#c53030;padding:6px 8px;background:rgba(245,101,101,0.1);border-radius:6px">
+        📉 하락 시나리오: ${v.bear}
+      </div>
+    </div>
+  `).join('');
+
+  // 관악구 특이 분석
+  const items = [
+    { icon: '✅', color: '#276749', bg: '#f0fff4', border: '#9ae6b4',
+      title: '2호선 수요는 정권 불문 꾸준',
+      desc: '강남 직결 2호선 역세권은 어떤 정부에서든 실수요가 꾸준합니다. 규제가 강해질수록 오히려 "그래도 살 곳"으로 수요가 집중되는 경향이 있습니다.' },
+    { icon: '✅', color: '#276749', bg: '#f0fff4', border: '#9ae6b4',
+      title: '서울 내 상대적 저가 → 양극화 수혜',
+      desc: '고가 아파트 대출 한도 4~2억으로 막히면서 5~7억대 실수요 매물에 수요가 몰리는 구조. 관악구는 이 가격대에 위치해 상대적으로 유리합니다.' },
+    { icon: '⚠️', color: '#d69e2e', bg: '#fffaf0', border: '#fbd38d',
+      title: '학군 프리미엄 없어 급등 가능성 낮음',
+      desc: '강남·목동·노원처럼 학군 수요가 몰리는 구조가 아니기 때문에 가격이 크게 튀기는 어렵습니다. 안정적이지만 폭발적 상승은 기대하기 어렵습니다.' },
+    { icon: '⚠️', color: '#d69e2e', bg: '#fffaf0', border: '#fbd38d',
+      title: '봉천·신림 재개발 변수',
+      desc: '노후 단지 재개발이 진행되면 이주 수요로 단기 전세가 상승 가능. 반면 재개발 구역 내 매수는 사업 지연 리스크가 있으니 반드시 정비구역 지정 여부 확인 필요.' },
+  ];
+
+  document.getElementById('gwanak-analysis').innerHTML = items.map(i => `
+    <div style="background:${i.bg};border:1.5px solid ${i.border};border-radius:10px;padding:14px 16px;display:flex;gap:12px">
+      <div style="font-size:1.2rem;flex-shrink:0">${i.icon}</div>
+      <div>
+        <div style="font-weight:700;color:${i.color};font-size:0.88rem;margin-bottom:4px">${i.title}</div>
+        <div style="font-size:0.8rem;color:#4a5568;line-height:1.6">${i.desc}</div>
+      </div>
+    </div>
+  `).join('');
+
+  // 클리핑 출처 링크
+  const sources = [
+    { label: '헤럴드경제', title: '"집값 오른다" 전문가 전망 3개월 새 81%→56%', url: 'https://biz.heraldcorp.com/article/10731192' },
+    { label: '헤럴드경제', title: '서울 아파트 매물 1년새 33% 증가 "하락 확대 전망"', url: 'https://biz.heraldcorp.com/article/10731194' },
+    { label: '아시아경제', title: '부동산 전문가 70% "내년 또는 2028년에나 집값 안정"', url: 'https://www.asiae.co.kr/article/2026050417394668278' },
+    { label: '뉴스핌', title: '주택시장 최대 변수는 세제…전문가 "상승" vs 중개사 "하락"', url: 'https://www.newspim.com/news/view/20260506001152' },
+    { label: '하나금융연구소', title: '2026년 부동산 시장 전망 보고서 (PDF)', url: 'https://files-scs.pstatic.net/2025/11/19/iy7I7ZHHv2/2026%EB%85%84%20%EB%B6%80%EB%8F%99%EC%82%B0%EC%8B%9C%EC%9E%A5%20%EC%A0%84%EB%A7%9D_%ED%95%98%EB%82%98%EC%9D%80%ED%96%89%20%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EC%97%B0%EA%B5%AC%EC%86%8C.pdf' },
+    { label: '미래에셋', title: '2025 부동산 정책으로 보는 2026 주택시장 전망', url: 'https://magazine.securities.miraeasset.com/contents.php?idx=1545' },
+    { label: '금융위원회', title: '긴급 가계부채 점검회의 보도자료 (2025.06.27)', url: 'https://www.fsc.go.kr/no010101/84824' },
+    { label: '글로벌이코노믹', title: '李대통령 구두개입 약발 끝났나…주택가격전망 반등', url: 'https://www.g-enews.com/article/Finance/2026/04/202604221603081364bbed569d68_1' },
+    { label: '한경매거진', title: '2026년 아파트 시장 양극화는 계속된다 — 아기곰', url: 'https://magazine.hankyung.com/business/article/202601077257b' },
+    { label: '이코노미조선', title: '2026년 부동산 키워드…세제개편·전세난·급매물', url: 'https://economychosun.com/site/data/html_dir/2025/12/05/2025120500029.html' },
+  ];
+
+  document.getElementById('clip-sources').innerHTML = sources.map(s => `
+    <a href="${s.url}" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:#f7fafc;border:1px solid #e2e8f0;margin-bottom:8px;text-decoration:none;transition:background 0.15s"
+       onmouseover="this.style.background='#edf2f7'" onmouseout="this.style.background='#f7fafc'">
+      <span style="font-size:0.7rem;font-weight:700;color:white;background:#4a5568;padding:2px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0">${s.label}</span>
+      <span style="font-size:0.82rem;color:#2d3748">${s.title}</span>
+      <span style="margin-left:auto;font-size:0.75rem;color:#a0aec0;flex-shrink:0">↗</span>
+    </a>
+  `).join('');
+}
+
+// ============================================================
+// 탭 12: 실거래가 검색
+// ============================================================
+let listingsCache = [];
+
+function initListingMonths() {
+  const sel = document.getElementById('lt-month');
+  if (!sel || sel.options.length > 0) return;
+  const now = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = `${d.getFullYear()}년 ${d.getMonth()+1}월`;
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = label;
+    sel.appendChild(opt);
+  }
+}
+
+async function fetchListings() {
+  initListingMonths();
+  const lawd  = document.getElementById('lt-lawd')?.value  || '11620';
+  const month = document.getElementById('lt-month')?.value || '';
+  const btn   = document.getElementById('lt-btn');
+  const statusEl = document.getElementById('lt-status');
+
+  if (btn) { btn.textContent = '조회 중...'; btn.disabled = true; }
+  if (statusEl) statusEl.textContent = '불러오는 중...';
+
+  try {
+    const url = `/api/listings?lawd=${lawd}&month=${month}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (!data.success) {
+      document.getElementById('lt-table').innerHTML =
+        `<div class="warn-box">오류: ${data.message}</div>`;
+      return;
+    }
+
+    listingsCache = data.items || [];
+    if (statusEl) statusEl.textContent = `${data.dealYmd?.replace(/(\d{4})(\d{2})/, '$1년 $2월')} 기준 · 국토교통부`;
+    renderListingTable();
+  } catch(e) {
+    document.getElementById('lt-table').innerHTML =
+      `<div class="warn-box">조회 실패: ${e.message}</div>`;
+  } finally {
+    if (btn) { btn.textContent = '조회하기'; btn.disabled = false; }
+  }
+}
+
+function renderListingTable() {
+  const maxPrice = parseInt(document.getElementById('lt-maxprice')?.value) || 0;
+  const nameQ    = (document.getElementById('lt-name')?.value || '').trim().toLowerCase();
+  const countEl  = document.getElementById('lt-count');
+
+  let filtered = listingsCache;
+  if (maxPrice > 0) filtered = filtered.filter(i => i.price <= maxPrice);
+  if (nameQ)        filtered = filtered.filter(i => i.name.toLowerCase().includes(nameQ));
+
+  if (countEl) countEl.textContent = `(${filtered.length}건)`;
+
+  const tableEl = document.getElementById('lt-table');
+  if (!filtered.length) {
+    tableEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">조건에 맞는 거래 내역이 없습니다.</div>';
+    return;
+  }
+
+  tableEl.innerHTML = `
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+        <thead>
+          <tr style="background:var(--surface2)">
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--border)">단지명</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--border)">동</th>
+            <th style="padding:9px 10px;text-align:right;border-bottom:2px solid var(--border)">거래금액</th>
+            <th style="padding:9px 10px;text-align:center;border-bottom:2px solid var(--border)">면적</th>
+            <th style="padding:9px 10px;text-align:center;border-bottom:2px solid var(--border)">층</th>
+            <th style="padding:9px 10px;text-align:center;border-bottom:2px solid var(--border)">거래일</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map((item, i) => `
+            <tr style="border-bottom:1px solid var(--border);${i%2===0?'':'background:var(--surface2)'}">
+              <td style="padding:9px 10px;font-weight:600;color:var(--text)">${item.name}</td>
+              <td style="padding:9px 10px;color:var(--text-muted)">${item.dong}</td>
+              <td style="padding:9px 10px;text-align:right;font-weight:700;color:var(--primary)">${item.priceStr}</td>
+              <td style="padding:9px 10px;text-align:center;color:var(--text-muted)">${item.area}㎡<br><span style="font-size:0.7rem">(${item.pyeong}평)</span></td>
+              <td style="padding:9px 10px;text-align:center;color:var(--text-muted)">${item.floor}층</td>
+              <td style="padding:9px 10px;text-align:center;color:var(--text-muted)">${item.dealDay}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="tip" style="margin-top:12px">국토교통부 실거래가 공개시스템 기준 · 신고일 기준 최대 2~3일 지연될 수 있습니다.</div>
+  `;
+}
+
+// ============================================================
+// 유튜브
+// ============================================================
+let allYtVideos = [];
+let ytFilter = '전체';
+
+function filterYoutube(channel) {
+  ytFilter = channel;
+  document.querySelectorAll('[data-yf]').forEach(b => {
+    b.classList.toggle('active', b.dataset.yf === channel);
+  });
+  renderYoutube();
+}
+
+function renderYoutube() {
+  const el = document.getElementById('yt-list');
+  if (!el || !allYtVideos.length) return;
+
+  const filtered = ytFilter === '전체'
+    ? allYtVideos
+    : allYtVideos.filter(v => v.channel === ytFilter);
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">영상이 없습니다.</div>';
+    return;
+  }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">
+    ${filtered.map(v => {
+      const date = new Date(v.publishedAt).toLocaleDateString('ko-KR', { month:'short', day:'numeric' });
+      return `
+        <a href="${v.url}" target="_blank" rel="noopener"
+           style="display:block;border-radius:12px;overflow:hidden;border:1px solid var(--border);text-decoration:none;transition:border-color 0.2s;background:var(--surface)"
+           onmouseover="this.style.borderColor='var(--primary)'"
+           onmouseout="this.style.borderColor='var(--border)'">
+          <div style="position:relative;padding-top:56.25%;background:#000">
+            <img src="${v.thumbnail}" alt="${v.title}"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"/>
+            <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.75);color:white;font-size:0.7rem;padding:2px 6px;border-radius:4px">▶ 유튜브</div>
+          </div>
+          <div style="padding:12px">
+            <div style="font-size:0.85rem;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${v.title}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:0.72rem;color:var(--primary);font-weight:600">${v.channel}</span>
+              <span style="font-size:0.72rem;color:var(--text-muted)">${date}</span>
+            </div>
+          </div>
+        </a>
+      `;
+    }).join('')}
+  </div>`;
+}
+
+async function fetchYoutube() {
+  const badgeEl = document.getElementById('yt-badge');
+  const listEl  = document.getElementById('yt-list');
+
+  if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">불러오는 중...</div>';
+
+  try {
+    const res  = await fetch('/api/youtube', { signal: AbortSignal.timeout(15000) });
+    const data = await res.json();
+
+    if (!data.success) throw new Error(data.message);
+
+    allYtVideos = data.allVideos || [];
+    const now = new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+
+    if (badgeEl) { badgeEl.textContent = `${now} 업데이트`; badgeEl.style.color = '#276749'; }
+    renderYoutube();
+
+  } catch(e) {
+    if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted)">영상을 불러올 수 없습니다.<br><span style="font-size:0.8rem">${e.message}</span></div>`;
+    if (badgeEl) { badgeEl.textContent = '로드 실패'; badgeEl.style.color = '#c53030'; }
+  }
+}
+
+// ============================================================
+// Claude AI 시장 분석
+// ============================================================
+async function runAnalysis() {
+  const btn      = document.getElementById('analyze-btn');
+  const pcEl     = document.getElementById('market-pros-cons');
+  const vEl      = document.getElementById('market-verdict');
+  const dateEl   = document.getElementById('market-date');
+  const subEl    = document.getElementById('market-sub');
+
+  if (btn) { btn.textContent = '분석 중...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+  if (pcEl) pcEl.innerHTML = `
+    <div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text-muted)">
+      <div style="font-size:1.5rem;margin-bottom:8px">🤖</div>
+      최신 뉴스를 읽고 분석 중입니다... (10~20초)
+    </div>`;
+
+  try {
+    const res  = await fetch('/api/analyze', { signal: AbortSignal.timeout(35000) });
+    const data = await res.json();
+
+    if (!data.success) throw new Error(data.message);
+
+    const { analysis, date } = data;
+    if (dateEl) dateEl.textContent = `${date} AI 분석`;
+    if (subEl)  subEl.textContent  = 'Claude AI + 네이버 최신 뉴스 기반';
+
+    if (pcEl) pcEl.innerHTML = `
+      <div style="background:#f0fff4;border:2px solid #9ae6b4;border-radius:10px;padding:16px">
+        <div style="font-weight:700;color:#276749;font-size:0.95rem;margin-bottom:12px">지금 사야 한다</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:9px">
+          ${analysis.pros.map(p => `
+            <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #68d391">
+              <strong>${p.title}</strong> — ${p.desc}
+            </li>`).join('')}
+        </ul>
+      </div>
+      <div style="background:#fff5f5;border:2px solid #feb2b2;border-radius:10px;padding:16px">
+        <div style="font-weight:700;color:#c53030;font-size:0.95rem;margin-bottom:12px">기다려야 한다</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:9px">
+          ${analysis.cons.map(c => `
+            <li style="font-size:0.82rem;color:var(--text);padding-left:12px;border-left:3px solid #fc8181">
+              <strong>${c.title}</strong> — ${c.desc}
+            </li>`).join('')}
+        </ul>
+      </div>`;
+
+    if (vEl) vEl.innerHTML = `
+      <strong style="color:var(--text)">AI 종합 판단 (${date})</strong><br><br>
+      ${analysis.verdict}
+      <div style="margin-top:8px;font-size:0.72rem;color:var(--text-muted)">
+        Claude AI가 최신 뉴스를 바탕으로 생성한 분석입니다. 투자 결정 시 전문가와 상담하세요.
+      </div>`;
+
+  } catch(e) {
+    if (pcEl) pcEl.innerHTML = `
+      <div style="grid-column:1/-1">
+        <div class="warn-box">분석 실패: ${e.message}</div>
+      </div>`;
+  } finally {
+    if (btn) { btn.textContent = 'AI 분석 새로고침'; btn.disabled = false; btn.style.opacity = '1'; }
+  }
+}
+
+// ============================================================
+// 실시간 데이터 연동
+// ============================================================
+async function fetchRealtimeData() {
+  const bar = document.getElementById('rt-bar');
+  if (bar) bar.style.opacity = '0.5';
+
+  await Promise.allSettled([
+    fetchBOKRate(),
+    fetchNewsRSS(),
+  ]);
+
+  if (bar) bar.style.opacity = '1';
+}
+
+async function fetchBOKRate() {
+  const el    = document.getElementById('rt-rate');
+  const rateEl = document.getElementById('rate');
+
+  try {
+    const now  = new Date();
+    const ym   = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}`;
+    const prev = `${now.getFullYear()}${String(Math.max(1, now.getMonth()-1)).padStart(2,'0')}`;
+    const url  = '/api/rate';
+
+    const res  = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const data = await res.json();
+    const rows = data?.success ? [{ DATA_VALUE: String(data.rate), TIME: data.period?.replace('.','') }] : null;
+
+    if (rows?.length > 0) {
+      const latest = rows[rows.length - 1];
+      const rate   = parseFloat(latest.DATA_VALUE);
+
+      if (!isNaN(rate)) {
+        // 상태바 업데이트
+        if (el) el.innerHTML = `
+          <span style="width:7px;height:7px;border-radius:50%;background:#48bb78;display:inline-block"></span>
+          한국은행 기준금리 <strong style="color:var(--text)">${rate}%</strong>
+          <span style="color:var(--text-muted);margin-left:4px">(${latest.TIME?.replace(/(\d{4})(\d{2})/, '$1.$2')})</span>
+        `;
+
+        // 대출 탭 금리 자동 반영 (사용자가 수동 입력하지 않은 경우)
+        if (rateEl && (rateEl.value === '4.0' || rateEl.value === '4')) {
+          const suggested = Math.round((rate + 1.3) * 10) / 10;
+          rateEl.value = suggested;
+          calcLoan();
+          // 안내 팁 표시
+          const dsrEl = document.getElementById('loan-dsr');
+          if (dsrEl) {
+            const tip = document.createElement('div');
+            tip.className = 'tip';
+            tip.style.marginTop = '8px';
+            tip.innerHTML = `한국은행 기준금리 <strong>${rate}%</strong>에 은행 가산금리를 더해 <strong>${suggested}%</strong>로 자동 설정됐습니다.`;
+            dsrEl.parentNode.insertBefore(tip, dsrEl.nextSibling);
+            setTimeout(() => tip.remove(), 6000);
+          }
+        }
+        return;
+      }
+    }
+    throw new Error('no data');
+  } catch(e) {
+    if (el) el.innerHTML = `
+      <span style="width:7px;height:7px;border-radius:50%;background:#fc8181;display:inline-block"></span>
+      기준금리 로드 실패 — <a href="https://www.bok.or.kr" target="_blank" style="color:var(--primary)">한국은행 직접 확인</a>
+    `;
+  }
+}
+
+let allNewsItems = [];
+let newsFilter = '전체';
+
+const NEWS_KEYWORDS = {
+  '금리': ['금리','기준금리','한국은행','금통위','인하','인상','대출금리'],
+  '규제': ['규제','LTV','DSR','대출','정책','규제지역','완화'],
+  '청약': ['청약','분양','특공','공공분양','LH','당첨'],
+  '전세': ['전세','전세사기','보증금','임대차','전세대출'],
+};
+
+function filterNews(keyword) {
+  newsFilter = keyword;
+  document.querySelectorAll('[data-nf]').forEach(b => {
+    b.classList.toggle('active', b.dataset.nf === keyword);
+  });
+  renderNewsItems();
+}
+
+function renderNewsItems() {
+  const newsEl = document.getElementById('live-news');
+  if (!newsEl || !allNewsItems.length) return;
+
+  let filtered = allNewsItems;
+  if (newsFilter !== '전체') {
+    const keys = NEWS_KEYWORDS[newsFilter] || [];
+    filtered = allNewsItems.filter(item =>
+      keys.some(k => item.title.includes(k))
+    );
+  }
+
+  if (!filtered.length) {
+    newsEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted)">해당 키워드 뉴스가 없습니다.</div>`;
+    return;
+  }
+
+  newsEl.innerHTML = filtered.map(item => {
+    let dateStr = '';
+    try {
+      const d = new Date(item.pubDate);
+      if (!isNaN(d)) dateStr = d.toLocaleDateString('ko-KR', { month:'short', day:'numeric' });
+    } catch {}
+    const src = (item.source || '').split(',')[0].trim();
+    return `
+      <a href="${item.link}" target="_blank" rel="noopener" class="news-item">
+        <div class="news-title">${item.title}</div>
+        <div class="news-meta">${src}${src && dateStr ? ' · ' : ''}${dateStr}</div>
+      </a>
+    `;
+  }).join('');
+}
+
+async function fetchNewsRSS() {
+  const statusEl  = document.getElementById('rt-news-status');
+  const badgeEl   = document.getElementById('news-badge');
+  const labelEl   = document.getElementById('news-source-label');
+  const newsEl    = document.getElementById('live-news');
+
+  if (newsEl) newsEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-muted)">불러오는 중...</div>`;
+
+  try {
+    const res  = await fetch('/api/news', { signal: AbortSignal.timeout(10000) });
+    const data = await res.json();
+
+    if (data.success && data.items?.length > 0) {
+      allNewsItems = data.items;
+      const now = new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+      const srcName = data.source?.match(/([^/]+)\.[^.]+$/)?.[1] || '뉴스';
+
+      if (statusEl) statusEl.innerHTML = `
+        <span style="width:7px;height:7px;border-radius:50%;background:#48bb78;display:inline-block"></span>
+        뉴스 ${data.items.length}건 · ${now}
+      `;
+      if (badgeEl) { badgeEl.textContent = `${now} 업데이트`; badgeEl.style.color = '#276749'; badgeEl.style.borderColor = '#9ae6b4'; }
+      if (labelEl) labelEl.textContent = `${srcName} RSS · 자동 업데이트`;
+
+      renderNewsItems();
+      return;
+    }
+    throw new Error(data.message || 'no items');
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `
+      <span style="width:7px;height:7px;border-radius:50%;background:#fc8181;display:inline-block"></span>
+      뉴스 연결 실패
+    `;
+    if (badgeEl) { badgeEl.textContent = '로드 실패'; badgeEl.style.color = '#c53030'; }
+    if (newsEl) newsEl.innerHTML = `
+      <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.85rem">
+        뉴스를 불러올 수 없습니다.<br>
+        <a href="https://www.hankyung.com/realestate" target="_blank" style="color:var(--primary);margin-top:8px;display:inline-block">한국경제 부동산 직접 보기 ↗</a>
+      </div>`;
+  }
+}
+
+// ============================================================
+// 탭 9: 청약 일정
+// ============================================================
+const cheongyakData = [
+  { name:'위례 자이 더 시티', area:'서울 송파구', type:'민영', category:'생애최초',
+    apply:'2026-06-20', announce:'2026-06-30', price:'8~12억대', units:320,
+    note:'2호선 위례역 예정, 생애최초 특공 20% 배정', url:'https://www.applyhome.co.kr' },
+  { name:'고덕강일 공공분양 3단지', area:'서울 강동구', type:'공공분양', category:'공공분양',
+    apply:'2026-07-10', announce:'2026-07-25', price:'시세 70%', units:580,
+    note:'신혼부부 특공 30% 배정, LH 직접 공급', url:'https://apply.lh.or.kr' },
+  { name:'신림 뉴타운 A구역', area:'서울 관악구', type:'민영', category:'신혼부부',
+    apply:'2026-07-22', announce:'2026-08-05', price:'6~9억대', units:245,
+    note:'관악구 신림 재개발, 2호선 신림역 도보권', url:'https://www.applyhome.co.kr' },
+  { name:'수서역세권 공공분양', area:'서울 강남구', type:'공공분양', category:'신혼부부',
+    apply:'2026-08-05', announce:'2026-08-20', price:'시세 75%', units:410,
+    note:'3·수인분당선 수서역 초근접, 신혼·생애최초 우선', url:'https://apply.lh.or.kr' },
+  { name:'과천지식정보타운 S3블록', area:'경기 과천시', type:'공공분양', category:'공공분양',
+    apply:'2026-08-18', announce:'2026-09-01', price:'시세 65%', units:890,
+    note:'4호선 과천역 인근, 서울 접근성 우수', url:'https://apply.lh.or.kr' },
+  { name:'은평 뉴타운 힐스테이트', area:'서울 은평구', type:'민영', category:'생애최초',
+    apply:'2026-09-03', announce:'2026-09-15', price:'7~10억대', units:310,
+    note:'6호선 역세권, 생애최초 추첨 100%', url:'https://www.applyhome.co.kr' },
+  { name:'마포 공덕 SK뷰', area:'서울 마포구', type:'민영', category:'민영',
+    apply:'2026-09-15', announce:'2026-09-28', price:'10~14억대', units:180,
+    note:'5·6호선·공항철도 공덕역 초근접', url:'https://www.applyhome.co.kr' },
+  { name:'하남 감일 공공분양', area:'경기 하남시', type:'공공분양', category:'신혼부부',
+    apply:'2026-10-07', announce:'2026-10-20', price:'시세 70%', units:720,
+    note:'5호선 연장 예정, 신혼부부 40% 배정', url:'https://apply.lh.or.kr' },
+];
+
+let ckFilter = 'all';
+
+function filterCheongyak(cat) {
+  ckFilter = cat;
+  document.querySelectorAll('.ck-filter').forEach(b => {
+    b.classList.toggle('active', b.dataset.f === cat);
+  });
+  renderCheongyak();
+}
+
+function renderCheongyak() {
+  const today = new Date();
+  const filtered = ckFilter === 'all'
+    ? cheongyakData
+    : cheongyakData.filter(c => c.category === ckFilter);
+
+  const sorted = [...filtered].sort((a, b) => new Date(a.apply) - new Date(b.apply));
+
+  const listEl = document.getElementById('cheongyak-list');
+  if (!listEl) return;
+
+  if (sorted.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">해당 유형의 청약 일정이 없습니다.</div>';
+    return;
+  }
+
+  listEl.innerHTML = sorted.map(c => {
+    const applyDate = new Date(c.apply);
+    const diff = Math.ceil((applyDate - today) / (1000*60*60*24));
+    const isUrgent = diff <= 14 && diff >= 0;
+    const isPast   = diff < 0;
+
+    const dDayText = isPast ? '마감' : diff === 0 ? 'D-Day' : `D-${diff}`;
+    const dDayColor = isPast ? '#a0aec0' : diff <= 7 ? '#c53030' : diff <= 14 ? '#d69e2e' : '#276749';
+    const dDayBg = isPast ? 'var(--surface2)' : diff <= 7 ? '#fff5f5' : diff <= 14 ? '#fffaf0' : '#f0fff4';
+
+    const catColors = {
+      '신혼부부': { bg:'#c6f6d5', c:'#276749' },
+      '생애최초': { bg:'#bee3f8', c:'#2b6cb0' },
+      '공공분양': { bg:'#e9d8fd', c:'#553c9a' },
+      '민영':     { bg:'#feebc8', c:'#7b341e' },
+    };
+    const cc = catColors[c.category] || { bg:'#e2e8f0', c:'#4a5568' };
+
+    return `
+      <div class="ck-card ${isUrgent ? 'urgent' : ''}">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <span class="ck-badge" style="background:${cc.bg};color:${cc.c}">${c.category}</span>
+          <span class="ck-badge" style="background:var(--surface2);color:var(--text-sub)">${c.type}</span>
+          <span style="font-size:0.95rem;font-weight:700;color:var(--text)">${c.name}</span>
+          <span class="ck-d-day" style="background:${dDayBg};color:${dDayColor}">${dDayText}</span>
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px">📍 ${c.area} &nbsp;·&nbsp; 🏘️ ${c.units}세대 &nbsp;·&nbsp; 💰 ${c.price}</div>
+        <div style="font-size:0.8rem;color:var(--text-sub);margin-bottom:8px">
+          📅 청약접수 <strong>${c.apply}</strong> &nbsp;·&nbsp; 당첨발표 ${c.announce}
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted);background:var(--surface2);padding:7px 10px;border-radius:7px;margin-bottom:8px">
+          💡 ${c.note}
+        </div>
+        <a href="${c.url}" target="_blank" rel="noopener"
+           style="font-size:0.78rem;color:var(--primary);font-weight:600;text-decoration:none">
+          청약홈에서 확인 ↗
+        </a>
+      </div>
+    `;
+  }).join('');
+
+  // 체크리스트
+  const ckItems = [
+    '청약통장 가입 여부 확인 (최소 6개월 이상)',
+    '무주택 세대주 확인 (세대원 전원)',
+    '소득 기준 확인 — 도시근로자 월평균 소득 기준표 대조',
+    '자산 기준 확인 — 부동산 및 자동차 자산 한도',
+    '청약홈(applyhome.co.kr) 본인 인증 및 회원가입',
+    '공인인증서(공동인증서) 또는 간편인증 등록',
+    '관심 단지 사전예약 알림 신청',
+    '특공 우선순위 확인 — 자녀 수·혼인 기간·청약통장 납입횟수',
+  ];
+  const ckEl = document.getElementById('cheongyak-checklist');
+  if (ckEl) {
+    ckEl.innerHTML = ckItems.map(item => `
+      <li class="check-item" onclick="toggleCheck(this)">
+        <div class="check-box"></div>
+        <div class="text">${item}</div>
+      </li>
+    `).join('');
+  }
+}
+
+// ============================================================
+// 탭 10: 저축 플래너
+// ============================================================
+function calcPlan() {
+  const current = +document.getElementById('plan-current').value || 0;
+  const target  = +document.getElementById('plan-target').value  || 0;
+  const monthly = +document.getElementById('plan-monthly').value || 0;
+  const rate    = (+document.getElementById('plan-rate').value || 3.5) / 100 / 12;
+
+  const resultEl = document.getElementById('plan-result');
+  const msEl     = document.getElementById('plan-milestones');
+  const chartEl  = document.getElementById('plan-chart');
+
+  if (!target || !monthly) {
+    resultEl.innerHTML = '<div class="tip">목표 자산과 월 저축 금액을 입력하면 분석이 시작됩니다.</div>';
+    return;
+  }
+
+  const need = target - current;
+  if (need <= 0) {
+    resultEl.innerHTML = '<div class="ok-box">✅ 이미 목표 자산에 도달했습니다! 🎉</div>';
+    return;
+  }
+
+  // 복리 계산으로 목표 도달 개월 수
+  let months = 0, acc = current;
+  while (acc < target && months < 600) {
+    acc = acc * (1 + rate) + monthly;
+    months++;
+  }
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+
+  const finalDate = new Date();
+  finalDate.setMonth(finalDate.getMonth() + months);
+  const dateStr = `${finalDate.getFullYear()}년 ${finalDate.getMonth()+1}월`;
+
+  resultEl.innerHTML = `
+    <div class="result-box" style="margin-top:14px">
+      <div class="label">목표 달성 예상 시기</div>
+      <div class="big-num">${years > 0 ? years+'년 ' : ''}${remMonths}개월 후</div>
+      <div class="sub">약 ${dateStr} · 필요 금액 ${fmt(need)} · 월 저축 ${fmt(monthly)}</div>
+    </div>
+    <div class="tip" style="margin-top:10px">
+      연 ${(rate*12*100).toFixed(1)}% 수익률 가정 · 복리 계산 기준<br>
+      월 저축을 <strong>${fmt(monthly+50)}원</strong>으로 늘리면 약 <strong>${Math.max(0, months - Math.ceil(50/(target/months)*0.8))}개월</strong> 단축됩니다.
+    </div>
+  `;
+
+  // 마일스톤
+  const milestones = [
+    { icon:'🏦', label:'비상금 확보',         amount: 1000,  color:'#48bb78' },
+    { icon:'🔑', label:'전세 보증금 (관악구)', amount: 35000, color:'#4299e1' },
+    { icon:'🏠', label:'매매 다운페이 30%',   amount: Math.round(target * 0.3), color:'#ed8936' },
+    { icon:'🎯', label:'목표 자산',            amount: target, color:'#9f7aea' },
+  ];
+
+  msEl.innerHTML = milestones.map(ms => {
+    let msMonths = 0, msAcc = current;
+    while (msAcc < ms.amount && msMonths < 600) {
+      msAcc = msAcc * (1 + rate) + monthly;
+      msMonths++;
+    }
+    const done = current >= ms.amount;
+    const msYears = Math.floor(msMonths/12), msMo = msMonths%12;
+    const msFinal = new Date(); msFinal.setMonth(msFinal.getMonth()+msMonths);
+    const pct = Math.min(100, Math.round(current / ms.amount * 100));
+
+    return `
+      <div class="plan-milestone">
+        <div class="plan-milestone-icon" style="background:${ms.color}22">
+          <span>${ms.icon}</span>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:0.88rem;font-weight:700;color:var(--text)">${ms.label}</span>
+            <span style="font-size:0.82rem;color:var(--text-muted)">${fmt(ms.amount)}</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width:${pct}%;background:${ms.color}"></div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">
+            ${done
+              ? `<span style="color:#276749;font-weight:700">✅ 달성 완료</span>`
+              : `약 ${msYears>0?msYears+'년 ':''}${msMo}개월 후 (${msFinal.getFullYear()}.${msFinal.getMonth()+1}) · 현재 ${pct}%`
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 바 차트 (12개월 단위)
+  const intervals = [];
+  for (let i = 0; i <= Math.min(months, 120); i += 6) {
+    let a = current;
+    for (let j = 0; j < i; j++) a = a * (1+rate) + monthly;
+    intervals.push({ month: i, amount: Math.round(a) });
+  }
+  if (intervals[intervals.length-1].month < months) {
+    intervals.push({ month: months, amount: target });
+  }
+
+  const maxAmt = Math.max(...intervals.map(v => v.amount));
+  chartEl.innerHTML = `
+    <div style="display:flex;align-items:flex-end;gap:4px;height:120px;padding:0 4px">
+      ${intervals.map(v => {
+        const h = Math.round((v.amount / maxAmt) * 110);
+        const atTarget = v.amount >= target;
+        return `
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <div style="width:100%;height:${h}px;background:${atTarget?'#9f7aea':'var(--primary)'};border-radius:4px 4px 0 0;opacity:0.85;min-height:4px"></div>
+            <div style="font-size:0.6rem;color:var(--text-muted);white-space:nowrap">${v.month}개월</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;text-align:center">
+      🟣 목표 달성 &nbsp;|&nbsp; 🔵 성장 중
+    </div>
+  `;
+}
+
+// ============================================================
+// 탭 11: 관심 매물 저장
+// ============================================================
+function getSaved() {
+  try { return JSON.parse(localStorage.getItem('saved_listings') || '[]'); }
+  catch { return []; }
+}
+function setSaved(arr) {
+  localStorage.setItem('saved_listings', JSON.stringify(arr));
+}
+
+function addSaved() {
+  const name  = document.getElementById('sv-name').value.trim();
+  const type  = document.getElementById('sv-type').value;
+  const price = +document.getElementById('sv-price').value || 0;
+  const size  = document.getElementById('sv-size').value.trim();
+  const memo  = document.getElementById('sv-memo').value.trim();
+  const url   = document.getElementById('sv-url').value.trim();
+
+  if (!name) { alert('단지명을 입력해주세요.'); return; }
+
+  const saved = getSaved();
+  saved.unshift({ id: Date.now(), name, type, price, size, memo, url, date: new Date().toLocaleDateString('ko-KR') });
+  setSaved(saved);
+
+  // 입력 초기화
+  ['sv-name','sv-price','sv-size','sv-memo','sv-url'].forEach(id => document.getElementById(id).value = '');
+  renderSaved();
+}
+
+function deleteSaved(id) {
+  const saved = getSaved().filter(s => s.id !== id);
+  setSaved(saved);
+  renderSaved();
+}
+
+function clearAllSaved() {
+  if (!confirm('저장된 매물을 모두 삭제할까요?')) return;
+  setSaved([]);
+  renderSaved();
+}
+
+function renderSaved() {
+  const saved = getSaved();
+  const listEl = document.getElementById('saved-list');
+  const countEl = document.getElementById('saved-count');
+  const compareCard = document.getElementById('saved-compare-card');
+  if (!listEl) return;
+
+  countEl.textContent = `(${saved.length}개)`;
+
+  if (saved.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">저장된 매물이 없습니다.<br>위 폼에서 추가해보세요 ⭐</div>';
+    if (compareCard) compareCard.style.display = 'none';
+    return;
+  }
+
+  listEl.innerHTML = saved.map(s => {
+    const typeBg  = s.type === '매매' ? '#bee3f8' : '#c6f6d5';
+    const typeCol = s.type === '매매' ? '#2b6cb0' : '#276749';
+    return `
+      <div class="saved-card">
+        <span class="saved-type-badge" style="background:${typeBg};color:${typeCol}">${s.type === '매매' ? '🏠 매매' : '🔑 전세'}</span>
+        <div style="flex:1">
+          <div style="font-size:0.95rem;font-weight:700;color:var(--text);margin-bottom:3px">${s.name}</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:4px">
+            ${s.price ? fmt(s.price)+'원' : '-'} ${s.size ? '· '+s.size : ''}
+          </div>
+          ${s.memo ? `<div style="font-size:0.78rem;color:var(--text-sub);background:var(--surface2);padding:5px 8px;border-radius:6px;margin-bottom:4px">💬 ${s.memo}</div>` : ''}
+          <div style="font-size:0.72rem;color:var(--text-muted)">저장일: ${s.date}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          ${s.url ? `<a href="${s.url}" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--primary);font-weight:600;text-decoration:none;white-space:nowrap">링크 ↗</a>` : ''}
+          <button onclick="deleteSaved(${s.id})" style="font-size:0.72rem;color:#c53030;background:none;border:1px solid #fed7d7;border-radius:6px;padding:3px 8px;cursor:pointer">삭제</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 비교 요약
+  if (saved.length >= 2 && compareCard) {
+    compareCard.style.display = 'block';
+    const sorted = [...saved].filter(s=>s.price>0).sort((a,b)=>a.price-b.price);
+    document.getElementById('saved-compare').innerHTML = `
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--border)">단지</th>
+              <th style="padding:9px 10px;text-align:center;border-bottom:2px solid var(--border)">유형</th>
+              <th style="padding:9px 10px;text-align:right;border-bottom:2px solid var(--border)">가격</th>
+              <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--border)">면적</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map((s,i) => `
+              <tr style="border-bottom:1px solid var(--border);${i===0?'background:var(--surface2)':''}">
+                <td style="padding:9px 10px;font-weight:${i===0?700:400};color:var(--text)">${i===0?'🥇 ':''} ${s.name}</td>
+                <td style="padding:9px 10px;text-align:center">${s.type}</td>
+                <td style="padding:9px 10px;text-align:right;font-weight:700;color:var(--primary)">${fmt(s.price)}</td>
+                <td style="padding:9px 10px;color:var(--text-muted)">${s.size||'-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="tip" style="margin-top:10px">가격 기준 오름차순 정렬 · 🥇 가장 저렴한 매물</div>
+    `;
+  }
+}
+
+// ============================================================
+// 다크모드 토글
+// ============================================================
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const newTheme = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  document.getElementById('theme-btn').textContent = isDark ? '🌙 다크모드' : '☀️ 라이트모드';
+  localStorage.setItem('theme', newTheme);
+  // 차트 재렌더
+  calcBudget();
+}
+
+// 저장된 테마 적용
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = saved === 'dark' ? '☀️ 라이트모드' : '🌙 다크모드';
+    });
+  }
+})();
+
+// ============================================================
+// 초기화
+// ============================================================
+calcBudget();
+calcLoan();
+calcCompare();
+renderAreas();
+renderChecklist();
+renderGovPrograms();
+renderClipping();
+renderListingTab();
+renderCheongyak();
+calcPlan();
+renderSaved();
+
+// 실거래가 월 선택 초기화
+initListingMonths();
+
+// 실시간 데이터 자동 로드
+fetchRealtimeData();
+
+// 저장된 테마 버튼 텍스트 동기화
+(function() {
+  const saved = localStorage.getItem('theme');
+  const btn = document.getElementById('theme-btn');
+  if (saved && btn) btn.textContent = saved === 'dark' ? '☀️ 라이트모드' : '🌙 다크모드';
+})();
+</script>
+</body>
+</html>
