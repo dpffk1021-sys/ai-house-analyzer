@@ -1,14 +1,17 @@
-// 부동산 뉴스 RSS 프록시 (Google News RSS → JSON 변환)
+// 부동산 뉴스 RSS 프록시 (네이버 뉴스 RSS → JSON 변환)
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   try {
-    const query  = '서울 부동산 아파트 집값';
-    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`;
+    const query  = '부동산 아파트 집값';
+    const rssUrl = `https://news.naver.com/rss/search/article?query=${encodeURIComponent(query)}`;
 
     const response = await fetch(rssUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; RSS Reader)',
+        'Accept': 'application/rss+xml, text/xml, */*',
+      },
     });
     const xml = await response.text();
 
